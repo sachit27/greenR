@@ -1,0 +1,76 @@
+#' Calculate green index for each edge
+#'
+#' This function calculates the green index for each edge in the road network.
+#'
+#' @param osm_data The OpenStreetMap data.
+#' @param crs_code The EPSG code for the Coordinate Reference System (CRS).
+#' @param D The decay parameter in the decay function, default is 100.
+#' @return A data frame with the green index for each edge.
+#' @export
+#' @examples
+#' calculate_green_index(osm_data, 2056, D = 100)
+calculate_green_index <- function(osm_data, crs_code, D = 100) {
+  library(purrr)
+  library(furrr)
+
+  # Extract data from the list
+  highways_data <- osm_data$highways
+  green_areas_data <- osm_data$green_areas
+  trees_data <- osm_data$trees
+
+  edges <- highways_data$osm_lines %>%
+    st_transform(crs = crs_code) %>%
+    as_tibble() %>%
+    select(osm_id, geometry)
+
+  green_areas <- green_areas_data$osm_polygons %>%
+    st_transform(crs = crs_code) %>%
+    st_union()
+
+  trees <- trees_data$osm_points %>%
+    st_transform(crs = crs_code)
+
+  st_crs(green_areas) <- st_crs(edges)
+  st_crs(trees) <- st_crs(edges)
+
+  # Define the distance decay functions
+  distance_decay_green_area <- function(edge, green_area) {
+
+    distance_to_green_area <- st_distance(edge, green_area)
+
+    decay_function <- exp(-(distance_to_green_area/D))
+
+    decay_function <- pmax(pmin(decay_function, 1), 0)
+
+    return(decay_function)
+  }
+
+  distance_decay_tree <- function(edge, trees) {
+
+    distances_to_trees <- st_distance(edge, trees)
+    min_distance_to_tree <- min(distances_to_trees)
+
+    decay_function <- exp(-(min_distance_to_tree/D))
+
+    decay_function <- pmax(pmin(decay_function, 1), 0)
+
+    return(decay_function)
+  }
+
+  plan(multisession)
+
+  edges <- edges %>%
+    mutate(
+      green_index_green_area = map_dbl(st_geometry(geometry), function(x) sum(map_dbl(green_areas, ~distance_decay_green_area(x, .x), na.rm = TRUE))),
+      green_index_tree = map_dbl(st_geometry(geometry), function(x) distance_decay_tree(x, trees))
+    )
+
+  # Compute normalized green index
+  edges <- edges %>%
+    mutate(
+      green_index = (green_index_green_area + green_index_tree) / 2,
+      green_index = (green_index - min(green_index)) / (max(green_index) - min(green_index))
+    )
+
+  return(edges)
+}
