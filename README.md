@@ -80,6 +80,3 @@ map <- save_as_leaflet(green_index, File Path)
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
 
-## Acknowledgements
-
-The data used by the package is available under the Open Database License.
