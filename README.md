@@ -43,10 +43,26 @@ data <- get_osm_data("Fulham, City of London, United Kingdom")
 
 ## Calculate the green index for the specified city
 
-This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter \texttt{D} for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. It then defines distance decay functions for green areas and trees using the parameter \texttt{D}. For each edge in the highways data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter) but it can be changed by the user. Similarly, the users must specify the CRS (https://epsg.io/).
+This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter D for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. It then defines distance decay functions for green areas and trees using the parameter \texttt{D}. For each edge in the highway data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter) but it can be changed by the user. Similarly, the users must specify the CRS (https://epsg.io/). The green index ranges from 0 to 1 and it represents the relative greenness of each section, factoring in proximity to green spaces and tree density.
 
 ```R
 green_index <- calculate_green_index(data, 4326, 100)
+```
+
+## Create the green index plot
+
+This function creates a static, color-coded map of the green index across the city's network. Each edge is plotted and color-coded based on its green index, providing an intuitive, easy-to-understand depiction of the city's spatial distribution of greenery. 
+
+```R
+map <- plot_green_index(green_index)
+```
+
+## Calculate the percentage of edges with a certain green index
+
+This function groups the edges by their respective green index and calculates the percentage of edges for each green index. For easier interpretation, we categorize the index into three tiers: Low ( > 0.4), Medium (0.4--0.7), and High (> 0.7). 
+
+```R
+percentage <- calculate_percentage(green_index)
 ```
 
 ## Shiny Application
