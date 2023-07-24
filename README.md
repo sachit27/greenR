@@ -16,7 +16,7 @@ We illustrate the efficacy of greenR by studying urban greenness patterns across
 
 ## Installation
 
-The functionality in this repository is implemented in the R package greenR. This package is not available on CRAN but can be obtained via GitHub by running the command below in R.
+The functionality in this repository is implemented in the R package greenR. This package is currently not available on CRAN but can be obtained via GitHub by running the command below in R.
 
 ```r
 # install.packages("remotes") # Uncomment if you do not have the 'remotes' package installed
@@ -24,6 +24,7 @@ remotes::install_github("sachit27/greenR", dependencies = TRUE)
 
 After installation, you can load the package into the R session using the following command.
 
+```r
 library(greenR)
 
 ```
