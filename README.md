@@ -4,7 +4,7 @@
   <img src="/img/zh_gi.png" width="300" />
 </p>
 
-# greenR
+# greenR: Green Index Quantification
 
 ## Introduction
 
