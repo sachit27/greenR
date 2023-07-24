@@ -20,8 +20,9 @@ remotes::install_github("sachit27/greenR", dependencies = TRUE)
 
 After installation, you can load the package into the R session using the following command.
 
-```r
 library(greenR)
+
+```
 
 ## Usage
 
