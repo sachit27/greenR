@@ -2,10 +2,9 @@
 #'
 #' @param edges A data frame containing the calculated green index values for each edge.
 #' @param file_path The file path where the HTML file will be saved.
-#' @importFrom leaflet addProviderTiles addPolylines addLegend leaflet
+#' @importFrom leaflet addProviderTiles addPolylines addLegend leaflet colorNumeric
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
-#' @importFrom leaflet.extras colorNumeric
 #' @export
 save_as_leaflet <- function(edges, file_path) {
   # Convert to an sf object and transform the data to the WGS84 CRS
@@ -13,8 +12,8 @@ save_as_leaflet <- function(edges, file_path) {
     sf::st_transform(crs = 4326)
 
   # Create a continuous color palette
-  color_palette <- leaflet.extras::colorNumeric(palette = c("#F0BB62", "#BFDB38", "#367E18"),
-                                                domain = edges_sf$green_index)
+  color_palette <- leaflet::colorNumeric(palette = c("#F0BB62", "#BFDB38", "#367E18"),
+                                         domain = edges_sf$green_index)
 
   # Create labels
   labels <- sprintf(
