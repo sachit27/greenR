@@ -1,5 +1,5 @@
 Package: greenR
-Title: What the Package Does (One Line, Title Case)
+Title: Green Index Quantification, Analysis and Visualization
 Version: 0.0.0.9000
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
