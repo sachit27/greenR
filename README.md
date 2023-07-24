@@ -29,7 +29,7 @@ library(greenR)
 
 ```
 
-## Find the city or neighborhood to create the green index
+## Specify the city or neighborhood and download the data
 
 The first step is to acquire data. This provides a systematic approach to collecting the requisite geospatial data from OSM, thereby serving as the foundation for all subsequent analyses. The users can simply specify any city or neighborhood (that has data available in OSM database). This function looks in the internal database and finds any city and downloads OSM data for the specified spatial area with regard to three key environmental features: highways, green areas, and trees.
 
