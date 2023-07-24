@@ -42,7 +42,7 @@ data <- get_osm_data("Fulham, City of London, United Kingdom")
 ```
 
 ## Calculate the green index for the specified city
-
+This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter \texttt{D} for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. It then defines distance decay functions for green areas and trees using the parameter \texttt{D}. For each edge in the highways data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter) but it can be changed by the user.
 
 ```R
 green_index <- calculate_green_index(data, 4326, 100)
