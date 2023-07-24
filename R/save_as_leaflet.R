@@ -2,7 +2,7 @@
 #'
 #' @param edges A data frame containing the calculated green index values for each edge.
 #' @param file_path The file path where the HTML file will be saved.
-#' @importFrom leaflet addProviderTiles addPolylines addLegend leaflet colorNumeric
+#' @importFrom leaflet addTiles addPolylines addLegend leaflet colorNumeric highlightOptions
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
 #' @export
@@ -21,14 +21,22 @@ save_as_leaflet <- function(edges, file_path) {
     edges_sf$green_index
   ) %>% lapply(htmltools::HTML)
 
+  # Define highlighting options
+  highlight <- leaflet::highlightOptions(
+    weight = 5,
+    color = "#666",
+    fillOpacity = 0.7,
+    bringToFront = TRUE
+  )
+
   # Create a Leaflet map
   map <- leaflet::leaflet(edges_sf) %>%
-    leaflet::addProviderTiles(providers$OpenStreetMap) %>%
+    leaflet::addTiles() %>%
     leaflet::addPolylines(color = ~color_palette(green_index),
                           weight = 1,
                           opacity = 1,
                           label = ~labels,
-                          highlightOptions = highlightOptions(weight = 5, color = "#666", fillOpacity = 0.7),
+                          highlight = highlight,
                           group = "edges") %>%
     leaflet::addLegend("bottomright",
                        pal = color_palette,
