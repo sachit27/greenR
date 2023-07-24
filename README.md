@@ -42,11 +42,13 @@ data <- get_osm_data("Fulham, City of London, United Kingdom")
 ```
 
 ## Calculate the green index for the specified city
-This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter \texttt{D} for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. It then defines distance decay functions for green areas and trees using the parameter \texttt{D}. For each edge in the highways data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter) but it can be changed by the user.
+
+This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter \texttt{D} for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. It then defines distance decay functions for green areas and trees using the parameter \texttt{D}. For each edge in the highways data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter) but it can be changed by the user. Similarly, the users must specify the CRS (https://epsg.io/).
 
 ```R
 green_index <- calculate_green_index(data, 4326, 100)
 ```
+
 ## Shiny Application
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. A live version of the application can be found [here](link to your shiny app), but it is also easily accessible from within R by calling the function `greenR_shiny()`.
