@@ -65,6 +65,10 @@ This function groups the edges by their respective green index and calculates th
 percentage <- calculate_percentage(green_index)
 ```
 
+## Data export and sharing
+
+These functions allow the user to download the green index values as a GeoJson file as well as a Leaflet map. The GeoJSON file retains the geographical properties of the data and can be readily employed in a broad range of GIS applications. The Leaflet map, saved as an HTML file, provides an interactive user experience, facilitating dynamic exploration of the data. 
+
 ## Shiny Application
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. A live version of the application can be found [here](link to your shiny app), but it is also easily accessible from within R by calling the function `greenR_shiny()`.
