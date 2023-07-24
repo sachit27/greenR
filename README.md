@@ -1,7 +1,7 @@
 <p float="left">
   <img src="/img/logo.png" width="250" />
-  <img src="/img/zh_network.png" width="280" /> 
-  <img src="/img/zh_gi.png" width="320" />
+  <img src="/img/zh_network.png" width="250" /> 
+  <img src="/img/zh_gi.png" width="300" />
 </p>
 
 # greenR
