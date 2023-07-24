@@ -41,6 +41,12 @@ Or
 data <- get_osm_data("Fulham, City of London, United Kingdom")
 ```
 
+## Calculate the green index for the specified city
+
+
+```R
+green_index <- calculate_green_index(data, 4326, 100)
+```
 ## Shiny Application
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. A live version of the application can be found [here](link to your shiny app), but it is also easily accessible from within R by calling the function `greenR_shiny()`.
