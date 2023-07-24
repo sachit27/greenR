@@ -1,4 +1,4 @@
-<img src="img/logo.png" width="600">
+<img src="img/logo.png" width="200">
 
 # greenR
 
