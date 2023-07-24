@@ -8,11 +8,10 @@
 
 ## Introduction
 
-How do we quantify the levels of greenness within urban street networks? Numerous attempts to quantify this factor have been made through survey methodologies, remote sensing data, and street view imagery. The results are promising, but are often limited by scalability constraints, including limited data availability, high requirements of computational power, and validation challenges. 
+greenR is a cutting-edge, open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap, greenR provides a new and scalable method to assign green indices to individual street segments. The greenR package offers a comprehensive solution by facilitating green index quantification, analysis, and visualization.
 
-In this study, we introduce a novel method for assessing urban greenness by utilizing crowd-sourced OpenStreetMap data, allowing us to assign green indices to individual street segments. We rigorously test and validate our method using reference datasets, leading to the development of greenR, an R package as well as an accompanying Shiny app. This facilitates green index quantification, analysis, and visualization. 
 
-We illustrate the efficacy of greenR by studying urban greenness patterns across several cities and highlight the potential impact of such an open-source frameworks for citizens, urban planners, and policy-makers.
+Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
 
 ## Installation
 
