@@ -24,7 +24,13 @@ After installation, you can load the package into the R session using the follow
 library(greenR)
 
 ## Usage
+
 (Here you can provide examples of how to use your package, similar to the "Create your own in R" section in the rcityviews README)
 
-Shiny Application
-You can make your own greenness analysis without having to code using an R Shiny implementation of the package. A live version of the application can be found [here](link to your shiny app), but it is also easily accessible from within R by calling the function greenR_shiny().
+## Shiny Application
+
+You can make your own greenness analysis without having to code using an R Shiny implementation of the package. A live version of the application can be found [here](link to your shiny app), but it is also easily accessible from within R by calling the function `greenR_shiny()`.
+
+## Acknowledgements
+
+The data used by the package is available under the Open Database License.
