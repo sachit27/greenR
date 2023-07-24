@@ -1,4 +1,4 @@
-![Map](/img/logo.png)
+<img src="img/logo.png" width="600">
 
 # greenR
 
