@@ -1,4 +1,8 @@
-<img src="img/logo.png" width="200">
+<p float="left">
+  <img src="/img/logo.png" width="100" />
+  <img src="/img/network_gv.png" width="100" /> 
+  <img src="/img/logo3.png" width="100" />
+</p>
 
 # greenR
 
