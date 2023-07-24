@@ -59,7 +59,7 @@ map <- plot_green_index(green_index)
 
 ## Calculate the percentage of edges with a certain green index
 
-This function groups the edges by their respective green index and calculates the percentage of edges for each green index. For easier interpretation, we categorize the index into three tiers: Low ( > 0.4), Medium (0.4--0.7), and High (> 0.7). 
+This function groups the edges by their respective green index and calculates the percentage of edges for each green index. For easier interpretation, we categorize the index into three tiers: Low ( > 0.4), Medium (0.4-0.7), and High (> 0.7). 
 
 ```R
 percentage <- calculate_percentage(green_index)
