@@ -22,4 +22,5 @@ Imports:
     leaflet,
     shiny,
     tibble,
-    magrittr
+    magrittr,
+    future 
