@@ -4,16 +4,13 @@
 \alias{save_as_leaflet}
 \title{Save the green index data as a Leaflet map in an HTML file}
 \usage{
-save_as_leaflet(green_index, file_path)
+save_as_leaflet(edges, file_path)
 }
 \arguments{
-\item{green_index}{A data frame containing the calculated green index values for each edge.}
+\item{edges}{A data frame containing the calculated green index values for each edge.}
 
 \item{file_path}{The file path where the HTML file will be saved.}
 }
 \description{
-This function saves the green index data for the edges as a Leaflet map in an HTML file.
-}
-\examples{
-save_as_leaflet(green_index, "green_index_map.html")
+Save the green index data as a Leaflet map in an HTML file
 }

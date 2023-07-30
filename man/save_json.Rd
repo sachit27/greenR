@@ -15,5 +15,12 @@ save_json(green_index, file_path)
 This function saves the green index data for all the edges as a JSON file.
 }
 \examples{
+\dontrun{
+# Generate a sample green_index data frame
+green_index <- data.frame(
+  green_index = runif(1000),
+  geometry = rep(sf::st_sfc(sf::st_point(c(0, 0))), 1000)
+)
 save_json(green_index, "green_index_data.json")
+}
 }

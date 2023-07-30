@@ -13,5 +13,11 @@ calculate_percentage(green_index)
 This function calculates the percentage of edges within each green index category.
 }
 \examples{
+\dontrun{
+# Generate a sample green_index data frame
+green_index <- data.frame(
+  green_index = runif(1000)
+)
 calculate_percentage(green_index)
+}
 }
