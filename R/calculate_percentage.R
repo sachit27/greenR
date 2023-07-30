@@ -7,19 +7,18 @@
 #' @examples
 #' calculate_percentage(green_index)
 calculate_percentage <- function(green_index) {
-  library(dplyr)
 
   green_index <- green_index %>%
-    mutate(
+    dplyr::mutate(
       green_index_category = cut(green_index,
                                  breaks = c(-Inf, 0.4, 0.7, Inf),
                                  labels = c("<0.4", "0.4-0.7", ">0.7"))
     )
 
   percentage <- green_index %>%
-    group_by(green_index_category) %>%
-    summarise(n = n(), .groups = "drop") %>%
-    mutate(percentage = n / sum(n) * 100)
+    dplyr::group_by(green_index_category) %>%
+    dplyr::summarise(n = dplyr::n(), .groups = "drop") %>%
+    dplyr::mutate(percentage = n / sum(n) * 100)
 
   print(percentage)
   invisible()
