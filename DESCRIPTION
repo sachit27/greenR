@@ -20,4 +20,5 @@ Imports:
     htmlwidgets,
     jsonlite,
     leaflet,
-    shiny
+    shiny,
+    tibble
