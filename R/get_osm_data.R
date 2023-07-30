@@ -18,28 +18,25 @@
 #'   osm_data <- get_osm_data("Lausanne, Switzerland")
 #' }
 get_osm_data <- function(bbox) {
-  library(osmdata)
-  library(sf)
-  library(dplyr)
 
   # Define a query to get the data from OpenStreetMap
-  query <- opq(bbox = bbox)
+  query <- osmdata::opq(bbox = bbox)
 
   # Download highways data
   highways_data <- query %>%
-    add_osm_feature(key = "highway") %>%
-    osmdata_sf()
+    osmdata::add_osm_feature(key = "highway") %>%
+    osmdata::osmdata_sf()
 
   # Download green areas data
   green_areas_data <- query %>%
-    add_osm_feature(key = "landuse", value = c("park", "forest", "recreation_ground", "allotments",
+    osmdata::add_osm_feature(key = "landuse", value = c("park", "forest", "recreation_ground", "allotments",
                                                 "meadow", "grass", "garden", "farmland", "nature_reserve")) %>%
-    osmdata_sf()
+    osmdata::osmdata_sf()
 
   # Download trees data
   trees_data <- query %>%
-    add_osm_feature(key = "natural", value = "tree") %>%
-    osmdata_sf()
+    osmdata::add_osm_feature(key = "natural", value = "tree") %>%
+    osmdata::osmdata_sf()
 
   return(list(highways = highways_data, green_areas = green_areas_data, trees = trees_data))
 }
