@@ -61,7 +61,7 @@ calculate_green_index <- function(osm_data, crs_code, D = 100) {
     return(decay_function)
   }
 
-  furrr::plan(furrr::multisession)
+  future::plan(future::multisession)
 
   edges <- edges %>%
     dplyr::mutate(
