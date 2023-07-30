@@ -4,8 +4,18 @@
 #'
 #' @param green_index A data frame containing the calculated green index values for each edge.
 #' @return NULL
+#' @importFrom ggplot2 ggplot geom_sf scale_color_gradientn theme_minimal theme element_text
+#' @importFrom sf st_as_sf
 #' @examples
+#' \dontrun{
+#' # Generate a sample green_index data frame
+#' green_index <- data.frame(
+#'   green_index = runif(1000),
+#'   geometry = rep(sf::st_sfc(sf::st_point(c(0, 0))), 1000)
+#' )
 #' plot_green_index(green_index)
+#' }
+#' @export
 plot_green_index <- function(green_index) {
 
   # Define the color range for the gradient
