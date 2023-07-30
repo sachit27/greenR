@@ -5,7 +5,14 @@
 #' @param green_index A data frame containing the calculated green index values for each edge.
 #' @return NULL
 #' @examples
+#' \dontrun{
+#' # Generate a sample green_index data frame
+#' green_index <- data.frame(
+#'   green_index = runif(1000)
+#' )
 #' calculate_percentage(green_index)
+#' }
+#' @export
 calculate_percentage <- function(green_index) {
 
   green_index <- green_index %>%
