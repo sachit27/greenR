@@ -2,13 +2,19 @@
 #'
 #' This function calculates the green index for each edge in the road network.
 #'
-#' @param osm_data The OpenStreetMap data.
+#' @param osm_data The OpenStreetMap data. This should be a list with three components: 
+#'                 highways, green_areas, and trees. Each component should be a spatial data frame. 
+#'                 You can use the osmdata package to get the required data.
 #' @param crs_code The EPSG code for the Coordinate Reference System (CRS).
 #' @param D The decay parameter in the decay function, default is 100.
 #' @return A data frame with the green index for each edge.
 #' @export
 #' @examples
+#' \dontrun{
+#' # osm_data should be a list with three components: highways, green_areas, and trees
+#' # You can use osmdata package to get this data.
 #' calculate_green_index(osm_data, 2056, D = 100)
+#' }
 calculate_green_index <- function(osm_data, crs_code, D = 100) {
   library(purrr)
   library(furrr)
