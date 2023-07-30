@@ -7,7 +7,7 @@ export(plot_green_index)
 export(run_app)
 export(save_as_leaflet)
 export(save_json)
-<<<<<<< HEAD
+
 importFrom(ggplot2,element_text)
 importFrom(ggplot2,geom_sf)
 importFrom(ggplot2,ggplot)
@@ -27,7 +27,7 @@ import(future)
 import(sf)
 import(shiny)
 import(tibble)
->>>>>>> 8f3c8ff3c6de7d2a713f25a1361fab311c5e24aa
+
 importFrom(htmlwidgets,saveWidget)
 importFrom(jsonlite,write_json)
 importFrom(leaflet,addLegend)
