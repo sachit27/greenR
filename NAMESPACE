@@ -26,12 +26,9 @@ importFrom(leaflet,leaflet)
 importFrom(sf,st_as_sf)
 importFrom(sf,st_transform)
 importFrom(shiny,runApp)
-<<<<<<< HEAD
-=======
 importFrom(httr,GET)
 importFrom(httr,content)
 importFrom(purrr, %>%)
 importFrom(osmdata,opq)
 importFrom(osmdata,add_osm_feature)
 importFrom(osmdata,osmdata_sf)
->>>>>>> aa461ab4f7fbb84c15b39fc3dd73c813a6be2866
