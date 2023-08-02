@@ -4,7 +4,7 @@
 #'
 #' @param green_index A data frame containing the calculated green index values for each edge.
 #' @return NULL
-#' @importFrom ggplot2 ggplot geom_sf scale_color_gradientn theme_minimal theme element_text
+#' @importFrom ggplot2 ggplot geom_sf scale_color_gradientn theme_minimal theme element_text aes
 #' @importFrom sf st_as_sf
 #' @examples
 #' \dontrun{
