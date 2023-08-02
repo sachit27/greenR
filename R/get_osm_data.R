@@ -34,9 +34,12 @@ get_osm_data <- function(bbox) {
   )
   content <- httr::content(response, "parsed")
   bbox <- as.numeric(content[[1]]$boundingbox)
+  
+  # Define the bounding box using retrieved values
+  bbox_query <- c(left = bbox[3], bottom = bbox[1], right = bbox[4], top = bbox[2])
 
   # Define a query to get the data from OpenStreetMap
-  query <- osmdata::opq(bbox = bbox)
+  query <- osmdata::opq(bbox = bbox_query)
 
   # Download highways data
   highways_data <- query %>%
