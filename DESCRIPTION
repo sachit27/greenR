@@ -15,11 +15,11 @@ Imports:
     osmdata,
     purrr,
     sf,
+    DT,
     htmltools,
     htmlwidgets,
     jsonlite,
     leaflet,
     shiny,
     tibble,
-    future,
-    DT
+    future
