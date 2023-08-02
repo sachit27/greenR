@@ -24,7 +24,7 @@
 #' }
 get_osm_data <- function(bbox) {
   # Query Nominatim for the bounding box
-  response <- GET(
+  response <- httr::GET(
     "https://nominatim.openstreetmap.org/search",
     query = list(
       q = bbox,
@@ -32,7 +32,7 @@ get_osm_data <- function(bbox) {
       featuretype = "settlement"
     )
   )
-  content <- content(response, "parsed")
+  content <- httr::content(response, "parsed")
   bbox <- as.numeric(content[[1]]$boundingbox)
 
   # Define a query to get the data from OpenStreetMap
