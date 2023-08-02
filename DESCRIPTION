@@ -12,6 +12,7 @@ RoxygenNote: 7.2.3
 Imports: 
     DT,
     httr,
+    magrittr,
     dplyr,
     ggplot2,
     osmdata,
