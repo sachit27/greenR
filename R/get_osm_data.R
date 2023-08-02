@@ -1,10 +1,10 @@
 #' Download OSM Data
 #'
-#' This function downloads OpenStreetMap (OSM) data for a specified location.
+#' This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
 #' The OSM data includes data about highways, green areas, and trees in the specified location.
 #' It requires an internet connection.
 #'
-#' @param location A string representing the location (e.g., "Genève, Schweiz/Suisse/Svizzera/Svizra").
+#' @param bbox A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").
 #'
 #' @return A list containing:
 #'   * highways: an sf object with the OSM data about highways in the specified location.
@@ -12,30 +12,31 @@
 #'     and nature reserves, in the specified location.
 #'   * trees: an sf object with the OSM data about trees in the specified location.
 #'
+#' @importFrom magrittr %>%
+#' @importFrom httr GET content
+#' @importFrom osmdata opq add_osm_feature osmdata_sf
+#' @importFrom sf st_transform st_union
+#' @importFrom dplyr select as_tibble
 #' @export
 #' @examples
 #' \dontrun{
-#'   osm_data <- get_osm_data("Genève, Schweiz/Suisse/Svizzera/Svizra")
+#'   osm_data <- get_osm_data("Lausanne, Switzerland")
 #' }
-get_osm_data <- function(location) {
-  
-  # Retrieve bounding box from Nominatim
-  response <- httr::GET(
+get_osm_data <- function(bbox) {
+  # Query Nominatim for the bounding box
+  response <- GET(
     "https://nominatim.openstreetmap.org/search",
     query = list(
-      q = location,
+      q = bbox,
       format = "json",
       featuretype = "settlement"
     )
   )
-  content <- httr::content(response, "parsed")
-  bbox <- as.numeric(content[[1]]$boundingbox) # Convert to numeric
-  
-  # Define the bounding box for the location using retrieved values
-  location_bbox <- c(left = bbox[3], bottom = bbox[1], right = bbox[4], top = bbox[2])
+  content <- content(response, "parsed")
+  bbox <- as.numeric(content[[1]]$boundingbox)
 
   # Define a query to get the data from OpenStreetMap
-  query <- osmdata::opq(bbox = location_bbox)
+  query <- osmdata::opq(bbox = bbox)
 
   # Download highways data
   highways_data <- query %>%
