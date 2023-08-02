@@ -7,6 +7,8 @@
 #'
 #' @name run_app
 #' @title Run the Shiny App for greenR
+#' @importFrom shiny runApp
+#' @importFrom DT renderDataTable datatable
 #' @export
 #' @examples
 #' \dontrun{
