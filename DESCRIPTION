@@ -21,4 +21,5 @@ Imports:
     leaflet,
     shiny,
     tibble,
-    future 
+    future,
+    DT
