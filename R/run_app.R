@@ -6,6 +6,8 @@
 #' calculate green indices, plot green index, and save green index data as a
 #' JSON file or as a Leaflet map in an HTML file.
 #'
+#' @name run_app
+#' @title Run the Shiny App for greenR
 #' @export
 #' @examples
 #' \dontrun{
