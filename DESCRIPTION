@@ -11,6 +11,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Imports: 
     dplyr,
+    DT,
     ggplot2,
     osmdata,
     purrr,
@@ -21,5 +22,4 @@ Imports:
     leaflet,
     shiny,
     tibble,
-    future,
-    DT
+    future
