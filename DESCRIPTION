@@ -15,7 +15,6 @@ Imports:
     osmdata,
     purrr,
     sf,
-    DT,
     htmltools,
     htmlwidgets,
     jsonlite,
