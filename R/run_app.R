@@ -18,5 +18,7 @@ run_app <- function() {
   if (app_dir == "") {
     stop("Could not find Shiny app directory. Please ensure that the package has been installed.")
   }
+  
+  message("Starting the Shiny app for greenR. Please wait...")
   shiny::runApp(app_dir)
 }
