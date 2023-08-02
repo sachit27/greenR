@@ -92,3 +92,6 @@ Please be aware of the following:
 
 Remember, performance can greatly vary based on the size of the network and the hardware of your machine.
 
+## Acknowledgments
+The OSM data is available under the Open Database License.
+
