@@ -1,10 +1,10 @@
 #' Download OSM Data
 #'
-#' This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
+#' This function downloads OpenStreetMap (OSM) data for a specified location.
 #' The OSM data includes data about highways, green areas, and trees in the specified location.
 #' It requires an internet connection.
 #'
-#' @param bbox A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").
+#' @param location A string representing the location (e.g., "Genève, Schweiz/Suisse/Svizzera/Svizra").
 #'
 #' @return A list containing:
 #'   * highways: an sf object with the OSM data about highways in the specified location.
@@ -15,12 +15,27 @@
 #' @export
 #' @examples
 #' \dontrun{
-#'   osm_data <- get_osm_data("Lausanne, Switzerland")
+#'   osm_data <- get_osm_data("Genève, Schweiz/Suisse/Svizzera/Svizra")
 #' }
-get_osm_data <- function(bbox) {
+get_osm_data <- function(location) {
+  
+  # Retrieve bounding box from Nominatim
+  response <- httr::GET(
+    "https://nominatim.openstreetmap.org/search",
+    query = list(
+      q = location,
+      format = "json",
+      featuretype = "settlement"
+    )
+  )
+  content <- httr::content(response, "parsed")
+  bbox <- as.numeric(content[[1]]$boundingbox) # Convert to numeric
+  
+  # Define the bounding box for the location using retrieved values
+  location_bbox <- c(left = bbox[3], bottom = bbox[1], right = bbox[4], top = bbox[2])
 
   # Define a query to get the data from OpenStreetMap
-  query <- osmdata::opq(bbox = bbox)
+  query <- osmdata::opq(bbox = location_bbox)
 
   # Download highways data
   highways_data <- query %>%
