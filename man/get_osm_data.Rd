@@ -4,10 +4,10 @@
 \alias{get_osm_data}
 \title{Download OSM Data}
 \usage{
-get_osm_data(location)
+get_osm_data(bbox)
 }
 \arguments{
-\item{location}{A string representing the location (e.g., "Genève, Schweiz/Suisse/Svizzera/Svizra").}
+\item{bbox}{A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").}
 }
 \value{
 A list containing:
@@ -19,12 +19,12 @@ and nature reserves, in the specified location.
 }
 }
 \description{
-This function downloads OpenStreetMap (OSM) data for a specified location.
+This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
 The OSM data includes data about highways, green areas, and trees in the specified location.
 It requires an internet connection.
 }
 \examples{
 \dontrun{
-  osm_data <- get_osm_data("Genève, Schweiz/Suisse/Svizzera/Svizra")
+  osm_data <- get_osm_data("Lausanne, Switzerland")
 }
 }
