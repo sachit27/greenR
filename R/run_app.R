@@ -1,4 +1,3 @@
-#' @importFrom DT datatable
 #' Run Shiny App
 #'
 #' This function runs the included Shiny app. The app provides an interactive
