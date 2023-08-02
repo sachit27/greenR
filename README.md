@@ -38,7 +38,7 @@ data <- get_osm_data("City of London, United Kingdom")
 ```
 Or
 ```R
-data <- get_osm_data("Fulham, City of London, United Kingdom")
+data <- get_osm_data("Fulham, London, United Kingdom")
 ```
 
 ## Calculate the green index for the specified city
