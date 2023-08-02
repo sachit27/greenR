@@ -25,7 +25,7 @@ plot_green_index <- function(green_index) {
   resolution <- 350
 
   plot <- ggplot2::ggplot() +
-    ggplot2::geom_sf(data = edges_sf, aes(color = green_index), size = 0.5) +
+    ggplot2::geom_sf(data = edges_sf, ggplot2::aes(color = green_index), size = 0.5) +
     ggplot2::scale_color_gradientn(colors = colors) +
     ggplot2::theme_minimal() +
     ggplot2::theme(text = ggplot2::element_text(size = text_size))
