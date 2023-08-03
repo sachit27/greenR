@@ -80,6 +80,16 @@ map <- save_as_leaflet(green_index, File Path)
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
 
+## Handling SSL Certificate Errors
+
+If you encounter an error related to SSL certificate authentication, such as:
+
+```R
+Error in curl::curl_fetch_memory(url, handle = handle) :
+Peer certificate cannot be authenticated with given CA certificates: SSL certificate problem: certificate has expired
+```
+It may be necessary to update the CA certificates on your system.
+
 ## Important Performance Notice
 
 This package, 'greenR' provides tools to measure and visualize the 'greenness' of urban areas. It performs intensive computations that require robust computational resources, particularly when analyzing large urban networks.
