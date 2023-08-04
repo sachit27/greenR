@@ -21,6 +21,12 @@ The functionality in this repository is implemented in the R package greenR. Thi
 # install.packages("remotes") # Uncomment if you do not have the 'remotes' package installed
 remotes::install_github("sachit27/greenR", dependencies = TRUE)
 ```
+Or you can also use devtools to install the package.
+
+```r
+library(devtools)
+devtools::install_github("sachit27/greenR", dependencies = TRUE)
+```
 
 After installation, you can load the package into the R session using the following command.
 
