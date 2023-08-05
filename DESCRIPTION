@@ -24,4 +24,5 @@ Imports:
     leaflet,
     shiny,
     tibble,
-    future
+    future,
+    plotly
