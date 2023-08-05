@@ -13,6 +13,8 @@ greenR is an open-source R package designed to tackle the challenging task of qu
 
 Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
 
+For more detailed information about the motivation, methodology, and validation, please have a look at this [Preprint](https://www.researchgate.net/publication/372909423_greenR_An_Open-Source_Framework_for_Quantifying_Urban_Greenness)
+
 ## Installation
 
 The functionality in this repository is implemented in the R package greenR. This package is currently not available on CRAN but can be obtained via GitHub by running the command below in R.
