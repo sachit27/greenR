@@ -78,7 +78,7 @@ map <- plot_green_index(green_index, interactive = TRUE)
 
 # Customize the plot
 map <- plot_green_index(green_index, colors = c("#FF0000", "#00FF00"), line_width = 1, line_type = "dashed")
-
+```
 
 ## Calculate the percentage of edges with a certain green index
 
