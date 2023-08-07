@@ -1,6 +1,6 @@
 Package: greenR
 Title: Green Index Quantification, Analysis and Visualization
-Version: 0.0.0.9000
+Version: 0.0.0.9
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
