@@ -4,7 +4,7 @@ Version: 0.0.0.9
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
-Description: greenR is an R package that enables the quantification, analysis, and visualization of urban greenness within city networks. It leverages data from OpenStreetMap (www.openstreetmap.org) and is implemented as both an R package and a Shiny web application for user-friendly interaction.
+Description: This package that enables the quantification, analysis, and visualization of urban greenness within city networks. It leverages data from OpenStreetMap (www.openstreetmap.org) and is implemented as both an R package and a Shiny web application for user-friendly interaction.
 License: GPL-3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
