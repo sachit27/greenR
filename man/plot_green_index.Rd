@@ -12,7 +12,7 @@ plot_green_index(
   title = NULL,
   xlab = NULL,
   ylab = NULL,
-  legend_title = NULL,
+  legend_title = Green_Index,
   legend_position = "right",
   theme = ggplot2::theme_minimal(),
   line_width = 0.5,
@@ -36,7 +36,7 @@ plot_green_index(
 
 \item{ylab}{Character, y-axis label for the plot. Default is NULL.}
 
-\item{legend_title}{Character, legend title for the plot. Default is NULL.}
+\item{legend_title}{Character, legend title for the plot. Default is Green_Index.}
 
 \item{legend_position}{Character, legend position for the plot. Default is "right".}
 

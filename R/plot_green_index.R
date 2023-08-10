@@ -10,7 +10,7 @@
 #' @param title Character, title for the plot. Default is NULL.
 #' @param xlab Character, x-axis label for the plot. Default is NULL.
 #' @param ylab Character, y-axis label for the plot. Default is NULL.
-#' @param legend_title Character, legend title for the plot. Default is Green_Index.
+#' @param legend_title Character, legend title for the plot. Default is "Green_Index".
 #' @param legend_position Character, legend position for the plot. Default is "right".
 #' @param theme ggplot theme object, theme for the plot. Default is ggplot2::theme_minimal().
 #' @param line_width Numeric, width of the line for the edges. Default is 1.
@@ -40,7 +40,7 @@ plot_green_index <- function(green_index,
                              title = NULL,
                              xlab = NULL,
                              ylab = NULL,
-                             legend_title = Green_Index,
+                             legend_title = "Green_Index",
                              legend_position = "right",
                              theme = ggplot2::theme_minimal(),
                              line_width = 0.5,
