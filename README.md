@@ -30,7 +30,11 @@ library(devtools)
 devtools::install_github("sachit27/greenR", dependencies = TRUE)
 ```
 
-NOTE: If you encounter any issues with the installation of the "osmdata" R package as a dependency, you may bypass CRAN and install it directly from the [Github Repository](https://github.com/ropensci/osmdata). This alternative installation method can be useful if the standard CRAN installation is not working as expected.
+NOTE: If you encounter any issues with the installation of the "osmdata" R package as a dependency, you may bypass CRAN and install it directly from the [Github Repository](https://github.com/ropensci/osmdata). This alternative installation method can be useful if the standard CRAN installation is not working as expected. Here is how you can install it.
+
+```r
+remotes::install_github ("ropensci/osmdata")
+```
 
 After installation, you can load the package into the R session using the following command.
 
