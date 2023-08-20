@@ -4,10 +4,21 @@
 \alias{get_osm_data}
 \title{Download OSM Data}
 \usage{
-get_osm_data(bbox)
+get_osm_data(
+  bbox,
+  server_url = "https://nominatim.openstreetmap.org/search",
+  username = NULL,
+  password = NULL
+)
 }
 \arguments{
 \item{bbox}{A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").}
+
+\item{server_url}{Optional string representing an alternative Nominatim server URL.}
+
+\item{username}{Optional string for username if authentication is required for the server.}
+
+\item{password}{Optional string for password if authentication is required for the server.}
 }
 \value{
 A list containing:
@@ -21,7 +32,8 @@ and nature reserves, in the specified location.
 \description{
 This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
 The OSM data includes data about highways, green areas, and trees in the specified location.
-It requires an internet connection.
+It requires an internet connection. If using RStudio Cloud, or if you need to use a private
+Nominatim server, you can specify an alternative server URL and credentials (username and password).
 }
 \examples{
 \dontrun{
