@@ -36,7 +36,7 @@ NOTE: If you encounter any issues with the installation of the "osmdata" R packa
 remotes::install_github ("ropensci/osmdata")
 ```
 
-After installation, you can load the package into the R session using the following command.
+After installing the greenR package, you can load the package into the R session using the following command.
 
 ```r
 library(greenR)
