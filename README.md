@@ -4,7 +4,7 @@
   <img src="/img/zh_gi.png" width="300" />
 </p>
 
-# greenR: Green Index Quantification
+# greenR: An R Package for Quantifying Urban Greenness
 
 ## Introduction
 
