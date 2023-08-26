@@ -102,6 +102,7 @@ These functions allow the user to download the green index values as a GeoJson f
 download_file <- save_json(green_index, File Path)
 map <- save_as_leaflet(green_index, File Path)
 ```
+![Map](/img/leaflet.png)
 
 ## Shiny Application
 
