@@ -1,7 +1,7 @@
 #' Download OSM Data
 #'
 #' This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
-#' The OSM data includes data about highways, green areas, and trees in the specified location.
+#' The OSM data includes information about highways, green areas, and trees in the specified location.
 #' It requires an internet connection. If using RStudio Cloud, or if you need to use a private
 #' Nominatim server, you can specify an alternative server URL and credentials (username and password).
 #'
@@ -27,6 +27,26 @@
 #'   osm_data <- get_osm_data("Lausanne, Switzerland")
 #' }
 get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org/search", username = NULL, password = NULL) {
+
+  # Function to align columns of two sf data frames
+  align_columns <- function(df1, df2) {
+    missing_cols_df1 <- setdiff(names(df2), names(df1))
+    missing_cols_df2 <- setdiff(names(df1), names(df2))
+
+    for(col in missing_cols_df1) {
+      df1[[col]] <- NA
+    }
+
+    for(col in missing_cols_df2) {
+      df2[[col]] <- NA
+    }
+
+    # Reorder columns to match
+    df1 <- df1[, names(df2)]
+
+    return(list(df1 = df1, df2 = df2))
+  }
+
   # Prepare for authentication if username and password are provided
   auth <- if (!is.null(username) && !is.null(password)) httr::authenticate(username, password) else NULL
 
@@ -51,6 +71,7 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
   if (length(content) == 0 || is.null(content[[1]]$boundingbox)) {
     stop("No bounding box information found for the provided location.")
   }
+
   bbox <- as.numeric(content[[1]]$boundingbox)
 
   # Define the bounding box using retrieved values
@@ -59,15 +80,27 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
   # Define a query to get the data from OpenStreetMap
   query <- osmdata::opq(bbox = bbox_query)
 
+  # Download landuse data
+  green_areas_data_landuse <- query %>%
+    osmdata::add_osm_feature(key = "landuse", value = c("forest", "recreation_ground", "allotments",
+                                                        "meadow", "grass", "garden", "farmland", "nature_reserve")) %>%
+    osmdata::osmdata_sf()
+
+  # Download leisure data
+  green_areas_data_leisure <- query %>%
+    osmdata::add_osm_feature(key = "leisure", value = "park") %>%
+    osmdata::osmdata_sf()
+
+  # Initialize an empty list to hold the combined data
+  green_areas_data <- list()
+
+  # Align and combine 'sf' objects
+  aligned_polygons <- align_columns(green_areas_data_landuse$osm_polygons, green_areas_data_leisure$osm_polygons)
+  green_areas_data$osm_polygons <- rbind(aligned_polygons$df1, aligned_polygons$df2)
+
   # Download highways data
   highways_data <- query %>%
     osmdata::add_osm_feature(key = "highway") %>%
-    osmdata::osmdata_sf()
-
-  # Download green areas data
-  green_areas_data <- query %>%
-    osmdata::add_osm_feature(key = "landuse", value = c("park", "forest", "recreation_ground", "allotments",
-                                                        "meadow", "grass", "garden", "farmland", "nature_reserve")) %>%
     osmdata::osmdata_sf()
 
   # Download trees data

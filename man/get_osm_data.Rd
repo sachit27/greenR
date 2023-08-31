@@ -31,7 +31,7 @@ and nature reserves, in the specified location.
 }
 \description{
 This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
-The OSM data includes data about highways, green areas, and trees in the specified location.
+The OSM data includes information about highways, green areas, and trees in the specified location.
 It requires an internet connection. If using RStudio Cloud, or if you need to use a private
 Nominatim server, you can specify an alternative server URL and credentials (username and password).
 }
