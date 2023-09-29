@@ -32,7 +32,7 @@ shinyUI(fluidPage(
       tabsetPanel(
         tabPanel("OSM Data", plotOutput("osm_plot", height = "90vh")),
         tabPanel("Green Index Data", DT::dataTableOutput("green_index_table")),
-        tabPanel("Green Index Plot", plotOutput("green_index_plot", height = "80vh")),
+        tabPanel("Green Index Plot", leaflet::leafletOutput("green_index_plot", height = "80vh")),
         tabPanel("Green Index Percentage", verbatimTextOutput("green_index_percentage"))
       )
     )

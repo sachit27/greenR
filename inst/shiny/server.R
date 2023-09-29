@@ -31,10 +31,10 @@ shinyServer(function(input, output, session) {
     }
   })
 
-  output$green_index_plot <- renderPlot({
+  output$green_index_plot <- leaflet::renderLeaflet({
     green_index <- green_index()
     if (!is.null(green_index)) {
-      plot_green_index(green_index)
+      plot_green_index(green_index, interactive = TRUE)
     }
   })
 
