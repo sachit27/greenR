@@ -65,25 +65,34 @@ green_index <- calculate_green_index(data, 4326, 100)
 
 ## Create the green index plot
 
-This function creates a color-coded map of the green index across the city's network, allowing for extensive customization and interactive exploration. Each edge is plotted and color-coded based on its green index, providing an intuitive, easy-to-understand depiction of the city's spatial distribution of greenery.
+This function visualizes the green index on a map, with options for both static and interactive display. Interactive maps are rendered using Leaflet, allowing users to zoom, pan, and interact with the map to explore the green index in more detail.
 
 ### Features
-- **Customization**: Customize the appearance of the plot by adjusting parameters such as color palette, text size, resolution, title, axis labels, legend position, line width, and line type.
-- **Interactive Plotting**: Choose to render the plot interactively using Plotly, enabling zooming, panning, and tooltips for a more immersive experience.
-- **Export Options**: Save the plot in various formats like PNG, PDF, and JPEG.
+- **Dynamic Mapping**: Create interactive, dynamic maps for a more engaging and detailed visualization.
+- **Customization**: Modify color palette, text size, resolution, title, axis labels, legend position, line width, and line type to suit your preferences.
 
 ### Usage
-Use the `plot_green_index` function to create the plot. The function allows for various customization options and can also render an interactive plot using Plotly.
-
 ```R
 # Create a static plot
 map <- plot_green_index(green_index)
 
-# Create an interactive plot using Plotly
-map <- plot_green_index(green_index, interactive = TRUE)
-
-# Customize the plot
+# Customize static plot
 map <- plot_green_index(green_index, colors = c("#FF0000", "#00FF00"), line_width = 1, line_type = "dashed")
+
+```
+### Customize Interactive Base Map
+In interactive mode, you can change the base map to various themes.
+
+```R
+# Create an interactive plot using Leaflet
+map <- plot_green_index(green_index, interactive = TRUE, base_map = "CartoDB.DarkMatter")
+
+# To view the plot in the console, use:
+print(map)
+
+# Use a light-themed base map
+map <- plot_green_index(green_index, interactive = TRUE, base_map = "CartoDB.Positron")
+
 ```
 
 ## Calculate the percentage of edges with a certain green index
