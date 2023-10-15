@@ -115,8 +115,8 @@ percentage <- calculate_percentage(green_index)
 These functions allow the user to download the green index values as a GeoJson file as well as a Leaflet map. The GeoJSON file retains the geographical properties of the data and can be readily employed in a broad range of GIS applications. The Leaflet map, saved as an HTML file, provides an interactive user experience, facilitating dynamic exploration of the data. The users should specify the file path to save these files.
 
 ```R
-download_file <- save_json(green_index, File Path)
-map <- save_as_leaflet(green_index, File Path)
+download_file <- save_json(green_index, "File Path") #file path has to be specified. For example "/Users/.../map.geojson"
+map <- save_as_leaflet(green_index, "File Path")
 ```
 ![Map](/img/leaflet.png)
 
