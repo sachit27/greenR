@@ -100,6 +100,7 @@ library(htmlwidgets)
 saveWidget(map, file = "my_plot.html")
 
 ```
+![Map](/img/darkmode.png)
 
 ## Calculate the percentage of edges with a certain green index
 
