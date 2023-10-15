@@ -125,7 +125,7 @@ To cite this package in publications, use:
 
 **APA**: Sachit Mahajan. (2023). greenR: An Open-Source Framework for Quantifying Urban Greenness. https://doi.org/10.13140/RG.2.2.36266.18888
 
-**BibTex Entry**: @article{Sachit Mahajan_2023, title={greenR: An Open-Source Framework for Quantifying Urban Greenness}, url={https://rgdoi.net/10.13140/RG.2.2.36266.18888}, DOI={10.13140/RG.2.2.36266.18888}, journal={preprint}, author={Sachit Mahajan}, year={2023} }
+**BibTex Entry**: @article{SMahajan_2023, title={greenR: An Open-Source Framework for Quantifying Urban Greenness}, url={https://rgdoi.net/10.13140/RG.2.2.36266.18888}, DOI={10.13140/RG.2.2.36266.18888}, journal={preprint}, author={Sachit Mahajan}, year={2023} }
 
 ## Handling SSL Certificate Errors
 
