@@ -92,7 +92,7 @@ print(map)
 
 # Use a light-themed base map
 map <- plot_green_index(green_index, interactive = TRUE, base_map = "CartoDB.Positron")
-print (map)
+print(map)
 ```
 You can save the interactive map using the htmlwidgets library.
 ```R
