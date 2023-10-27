@@ -82,13 +82,13 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
 
   # Download landuse data
   green_areas_data_landuse <- query %>%
-    osmdata::add_osm_feature(key = "landuse", value = c("forest", "recreation_ground", "allotments",
-                                                        "meadow", "grass", "garden", "farmland", "nature_reserve")) %>%
+    osmdata::add_osm_feature(key = "landuse", value = c("forest", "vineyard", "plant_nursery", "orchard", "greenfield", "recreation_ground", "allotments",
+                                                        "meadow","village_green","flowerbed", "grass", "farmland")) %>%
     osmdata::osmdata_sf()
 
   # Download leisure data
   green_areas_data_leisure <- query %>%
-    osmdata::add_osm_feature(key = "leisure", value = "park") %>%
+    osmdata::add_osm_feature(key = "leisure", value = c("garden", "dog_park","nature_reserve", "park")) %>%
     osmdata::osmdata_sf()
 
   # Initialize an empty list to hold the combined data
