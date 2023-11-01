@@ -5,23 +5,23 @@
 #'
 #' @param image_path The path of the image file to be processed.
 #' @return A list containing the Green View Index (GVI), the segmented image, and the green pixels image.
-#' @examples
-#' \dontrun{
-#' # Example usage with an image located at the specified path
-#' result <- calculate_and_visualize_GVI("/path/to/your/image.png")
-#' }
+#' @importFrom SuperpixelImageSegmentation Image_Segmentation
+#' @importFrom OpenImageR readImage
+#' @importFrom imager imager
+#' @importFrom base file.exists
+
 calculate_and_visualize_GVI <- function(image_path) {
 
-  # Required Libraries
-  library(SuperpixelImageSegmentation)
-  library(OpenImageR)
-  library(imager)
+  # Error check: Verify if the image_path is a valid file path
+  if (!file.exists(image_path)) {
+    stop("The specified image_path does not point to a valid file.")
+  }
 
-  # Read the image
-  image <- readImage(image_path)
+  # Read the image using OpenImageR
+  image <- OpenImageR::readImage(image_path)
 
-  # Initialize Image Segmentation
-  init = Image_Segmentation$new()
+  # Initialize Image Segmentation using SuperpixelImageSegmentation
+  init = SuperpixelImageSegmentation::Image_Segmentation$new()
 
   # Perform Superpixel Segmentation
   spx = init$spixel_segmentation(input_image = image,
@@ -61,7 +61,7 @@ calculate_and_visualize_GVI <- function(image_path) {
   }
 
   GVI = green_pixels / total_pixels
-  print(paste("Green View Index: ", GVI))
+  message("Green View Index: ", GVI)
 
   # Visualize Green Pixels
   visualized_image = array(0, dim=c(dim(segmented_image)[1], dim(segmented_image)[2], 3))

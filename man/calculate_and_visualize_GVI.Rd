@@ -16,9 +16,3 @@ A list containing the Green View Index (GVI), the segmented image, and the green
 This function reads an image, performs superpixel segmentation (using the SuperpixelImageSegmentation library), calculates the Green View Index (GVI),
 and returns a list containing the segmented image, the green pixels image, and the calculated GVI.
 }
-\examples{
-\dontrun{
-# Example usage with an image located at the specified path
-result <- calculate_and_visualize_GVI("/path/to/your/image.png")
-}
-}

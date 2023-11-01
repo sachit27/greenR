@@ -36,10 +36,3 @@ A tmap object representing the accessibility map.
 This function generates a map that shows green spaces accessible within a specified
 walking time from a given location. The location is specified by its latitude and longitude.
 }
-\examples{
-\dontrun{
-  data <- get_osm_data("Basel, Switzerland")
-  green_area_data <- data$green_areas
-  accessibility_greenspace(data, 47.55766933769894, 7.58770875908778)
-}
-}

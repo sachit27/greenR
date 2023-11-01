@@ -17,54 +17,53 @@
 #' @importFrom tibble tibble
 #' @importFrom osrm osrmIsochrone
 #' @importFrom tmap tm_shape tm_polygons tm_dots
-#' @export
-#' @examples
-#' \dontrun{
-#'   data <- get_osm_data("Basel, Switzerland")
-#'   green_area_data <- data$green_areas
-#'   accessibility_greenspace(data, 47.55766933769894, 7.58770875908778)
-#' }
+#' @importFrom dplyr rename
+#' @importFrom magrittr %>%
+
 accessibility_greenspace <- function(green_area_data, location_lat, location_lon,
                                      max_walk_time = 5, green_color = "green",
                                      location_color = "blue", isochrone_color = "viridis") {
 
-  # Load required libraries
-  library(sf)
-  library(osrm)
-  library(tibble)
-  library(tmap)
+  # Error Handling: Check if latitude and longitude are numeric and within valid range
+  if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
+    stop("Invalid latitude provided. Latitude should be a numeric value between -90 and 90.")
+  }
+
+  if (!is.numeric(location_lon) || location_lon < -180 || location_lon > 180) {
+    stop("Invalid longitude provided. Longitude should be a numeric value between -180 and 180.")
+  }
 
   # Prepare the green area data
   osm_sf <- green_area_data$osm_polygons
 
   # Prepare the specified location as an sf object
   specified_location <-
-    tibble(
+    tibble::tibble(
       case_id = c(1),
       lat = c(location_lat),
       lon = c(location_lon)
     ) %>%
-    st_as_sf(., coords = c("lon", "lat"), crs = 4326, agr = "constant") %>%
-    st_transform(., crs = 4326)
+    sf::st_as_sf(., coords = c("lon", "lat"), crs = 4326, agr = "constant") %>%
+    sf::st_transform(., crs = 4326)
 
   # Create the isochrone map using the specified location and walking time
-  iso_map <- osrmIsochrone(loc = specified_location,
-                           breaks = seq(from = 0, to = max_walk_time, by = 5),
-                           osrm.profile = "foot")
+  iso_map <- osrm::osrmIsochrone(loc = specified_location,
+                                 breaks = seq(from = 0, to = max_walk_time, by = 5),
+                                 osrm.profile = "foot")
 
   # Make the isochrone map valid for plotting
-  iso_map_valid <- st_make_valid(iso_map)
+  iso_map_valid <- sf::st_make_valid(iso_map)
 
   # Find green spaces within the isochrone
-  green_within_isochrone <- st_intersection(osm_sf, iso_map_valid)
+  green_within_isochrone <- sf::st_intersection(osm_sf, iso_map_valid)
 
   # Generate and return the map
   return(
-    tm_shape(iso_map_valid %>% rename(walk_time = isomax)) +
-      tm_polygons("walk_time", palette = isochrone_color, alpha = 0.6) +
-      tm_shape(green_within_isochrone) +
-      tm_dots(size = 0.1, col = green_color) +
-      tm_shape(specified_location) +
-      tm_dots(size = 0.2, col = location_color)
+    tmap::tm_shape(iso_map_valid %>% dplyr::rename(walk_time = isomax)) +
+      tmap::tm_polygons("walk_time", palette = isochrone_color, alpha = 0.6) +
+      tmap::tm_shape(green_within_isochrone) +
+      tmap::tm_dots(size = 0.1, col = green_color) +
+      tmap::tm_shape(specified_location) +
+      tmap::tm_dots(size = 0.2, col = location_color)
   )
 }
