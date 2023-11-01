@@ -25,6 +25,9 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
                                      max_walk_time = 5, green_color = "green",
                                      location_color = "blue", isochrone_color = "viridis") {
 
+  # Set tmap mode to view for interactive leaflet map
+  tmap::tmap_mode("view")
+
   # Error Handling: Check if latitude and longitude are numeric and within valid range
   if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
     stop("Invalid latitude provided. Latitude should be a numeric value between -90 and 90.")
