@@ -14,6 +14,7 @@
 #'   # Assuming you have already obtained green_areas_data using get_osm_data
 #'   visualize_green_spaces(green_areas_data)
 #' }
+#' @export
 visualize_green_spaces <- function(green_areas_data) {
   # Check if green_areas_data contains the required components
   if (!is.list(green_areas_data) || !all(c("osm_polygons") %in% names(green_areas_data))) {

@@ -24,6 +24,7 @@
 #' @importFrom leaflet leaflet addProviderTiles addPolylines colorBin
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
+#' @export
 
 plot_green_index <- function(green_index_data,
                              base_map = "CartoDB.DarkMatter",

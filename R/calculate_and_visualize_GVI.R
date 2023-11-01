@@ -10,6 +10,7 @@
 #' # Example usage with an image located at the specified path
 #' result <- calculate_and_visualize_GVI("/path/to/your/image.png")
 #' }
+#' @export
 calculate_and_visualize_GVI <- function(image_path) {
 
   # Required Libraries

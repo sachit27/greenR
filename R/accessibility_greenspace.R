@@ -19,6 +19,7 @@
 #' @importFrom tmap tm_shape tm_polygons tm_dots
 #' @importFrom dplyr rename
 #' @importFrom magrittr %>%
+#' @export
 
 accessibility_greenspace <- function(green_area_data, location_lat, location_lon,
                                      max_walk_time = 5, green_color = "green",
