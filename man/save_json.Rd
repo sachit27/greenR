@@ -2,17 +2,17 @@
 % Please edit documentation in R/save_as_json.R
 \name{save_json}
 \alias{save_json}
-\title{Save the green index data as a JSON file}
+\title{Save the green index data as a GeoJSON file}
 \usage{
 save_json(green_index, file_path)
 }
 \arguments{
 \item{green_index}{A data frame containing the calculated green index values for each edge.}
 
-\item{file_path}{The file path where the JSON file will be saved.}
+\item{file_path}{The file path where the GeoJSON file will be saved.}
 }
 \description{
-This function saves the green index data for all the edges as a JSON file.
+This function saves the green index data for all the edges as a GeoJSON file.
 }
 \examples{
 \dontrun{
@@ -21,6 +21,6 @@ green_index <- data.frame(
   green_index = runif(1000),
   geometry = rep(sf::st_sfc(sf::st_point(c(0, 0))), 1000)
 )
-save_json(green_index, "green_index_data.json")
+save_json(green_index, "green_index_data.geojson")
 }
 }

@@ -5,9 +5,10 @@
 \title{Plot the green index}
 \usage{
 plot_green_index(
-  green_index,
+  green_index_data,
+  base_map = "CartoDB.DarkMatter",
   colors = c("#F0BB62", "#BFDB38", "#367E18"),
-  text_size = 14,
+  text_size = 12,
   resolution = 350,
   title = NULL,
   xlab = NULL,
@@ -15,18 +16,20 @@ plot_green_index(
   legend_title = "Green_Index",
   legend_position = "right",
   theme = ggplot2::theme_minimal(),
-  line_width = 0.5,
+  line_width = 0.8,
   line_type = "solid",
   interactive = FALSE,
   filename = NULL
 )
 }
 \arguments{
-\item{green_index}{A data frame containing the calculated green index values for each edge.}
+\item{base_map}{Character, base map to use. Default is "CartoDB.DarkMatter".
+Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
+"MtbMap", "Stamen.TonerLines", and "Stamen.TonerLabels".}
 
 \item{colors}{Character vector, colors for the gradient. Default is c("#F0BB62", "#BFDB38", "#367E18").}
 
-\item{text_size}{Numeric, size of the text in the plot. Default is 14.}
+\item{text_size}{Numeric, size of the text in the plot. Default is 12.}
 
 \item{resolution}{Numeric, resolution of the plot. Default is 350.}
 
@@ -42,25 +45,17 @@ plot_green_index(
 
 \item{theme}{ggplot theme object, theme for the plot. Default is ggplot2::theme_minimal().}
 
-\item{line_width}{Numeric, width of the line for the edges. Default is 1.}
+\item{line_width}{Numeric, width of the line for the edges. Default is 0.8.}
 
 \item{line_type}{Character or numeric, type of the line for the edges. Default is "solid".}
 
-\item{interactive}{Logical, whether to return an interactive plot using plotly. Default is FALSE.}
+\item{interactive}{Logical, whether to return an interactive plot using leaflet. Default is FALSE.}
 
-\item{filename}{Character, filename to save the plot. Supported formats include png, pdf, jpeg, etc. Default is NULL (no file saved).}
+\item{filename}{Character, filename to save the plot. Supported formats include HTML. Default is NULL (no file saved).}
+
+\item{green_index}{A data frame containing the calculated green index values for each edge.}
 }
 \description{
 This function plots the green index for the highway network with extensive customization options.
-Users can set various parameters like text size, color palette, resolution, theme, line width, line type, and more.
-}
-\examples{
-\dontrun{
-# Generate a sample green_index data frame
-green_index <- data.frame(
-  green_index = runif(1000),
-  geometry = rep(sf::st_sfc(sf::st_point(c(0, 0))), 1000)
-)
-plot_green_index(green_index)
-}
+Users can set various parameters like text size, color palette, resolution, base map, line width, line type, and more.
 }
