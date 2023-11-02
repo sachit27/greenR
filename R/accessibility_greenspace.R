@@ -16,6 +16,7 @@
 #'
 #' @importFrom sf st_as_sf st_transform st_make_valid
 #' @importFrom leaflet leaflet addProviderTiles addPolygons addCircles addLegend addLayersControl
+#' @importFrom sf st_as_sf st_transform st_make_valid st_coordinates
 #' @importFrom osrm osrmIsochrone
 #' @importFrom tibble tibble
 #'
