@@ -8,7 +8,7 @@ accessibility_greenspace(
   green_area_data,
   location_lat,
   location_lon,
-  max_walk_time = 5,
+  max_walk_time = 15,
   green_color = "green",
   location_color = "blue",
   isochrone_color = "viridis"
@@ -23,16 +23,24 @@ accessibility_greenspace(
 
 \item{max_walk_time}{Maximum walking time in minutes. Default is 15.}
 
-\item{green_color}{Color for the green areas on the map. Default is "black".}
+\item{green_color}{Color for the green areas on the map. Default is "green".}
 
 \item{location_color}{Color for the specified location on the map. Default is "blue".}
 
 \item{isochrone_color}{Color palette for the isochrone lines. Default is "viridis".}
 }
 \value{
-A tmap object representing the accessibility map.
+A leaflet map object.
 }
 \description{
-This function generates a map that shows green spaces accessible within a specified
-walking time from a given location. The location is specified by its latitude and longitude.
+This function generates a leaflet map that shows green spaces accessible within
+a specified walking time from a given location. The location is specified by its
+latitude and longitude coordinates.
+}
+\examples{
+\dontrun{
+  green_area_data <- data$green_areas
+  accessibility_greenspace(data, 47.56, 7.59)
+}
+
 }
