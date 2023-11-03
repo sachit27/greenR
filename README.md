@@ -45,7 +45,7 @@ library(greenR)
 
 ## Specify the city or neighborhood and download the data
 
-The first step is to acquire data. This provides a systematic approach to collecting the requisite geospatial data from OSM, thereby serving as the foundation for all subsequent analyses. The users can simply specify any city or neighborhood (that has data available in OSM database). This function looks in the internal database and finds any city and downloads OSM data for the specified spatial area with regard to three key environmental features: highways, green areas, and trees.
+The first step is to acquire data. This provides a systematic approach to collecting the requisite geospatial data from OSM, thereby serving as the foundation for all subsequent analyses. The users can simply specify any city or neighborhood (that has data available in OSM database). This function looks in the database and finds any city and downloads OSM data for the specified spatial area with regard to three key environmental features: highways, green areas, and trees. Here green areas include all the areas with the following tags: "forest", "vineyard", "plant_nursery", "orchard", "greenfield", "recreation_ground", "allotments", "meadow","village_green","flowerbed", "grass", "farmland", "garden", "dog_park","nature_reserve", and "park".
 
 ```R
 data <- get_osm_data("City of London, United Kingdom")
