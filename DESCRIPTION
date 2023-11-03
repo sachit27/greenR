@@ -22,6 +22,7 @@ Imports:
     htmlwidgets,
     jsonlite,
     leaflet,
+    leaflet.providers,
     shiny,
     tibble,
     future,
@@ -30,4 +31,6 @@ Imports:
     OpenImageR,
     imager,
     osrm,
-    tmap
+    tmap,
+    factoextra,
+    RColorBrewer
