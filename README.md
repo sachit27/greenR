@@ -55,6 +55,25 @@ Or
 data <- get_osm_data("Fulham, London, United Kingdom")
 ```
 
+## Visualise green spaces
+
+The visualize_green_spaces() function is designed to aid in the visual assessment of green space data. Utilizing an integrated leaflet map, users can explore the distribution and mapping quality of green spaces within a specified area. By plotting this data on an interactive leaflet map, users gain insights into the extent and accuracy of green space representation. After visualizing the green spaces within the desired area, users may wish to contribute to the OpenStreetMap project to enhance the data quality or add unrepresented areas. 
+
+```R
+green_areas_data <- data$green_areas
+visualize_green_spaces(green_areas_data)
+```
+![Green_Areas](/img/green_areas.png)
+
+## Accessibility map
+
+This function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
+
+```R
+accessibility_greenspace(green_areas_data, 47.56427527336772, 7.595820936462059)
+```
+![Isochrone](/img/isochrone.png)
+
 ## Calculate the green index for the specified city
 
 This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter D for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. The CRS affects how distances, areas, and other measurements are calculated. Different CRSs may represent the Earth's surface in ways that either exaggerate or minimize certain dimensions. So, using the wrong CRS can lead to incorrect calculations and analyses. If you're focusing on a city or other localized area, you'll likely want to use a CRS that is tailored to that specific location. This could be a local city grid system or other local CRS that has been designed to minimize distortions in that area. This function then defines distance decay functions for green areas and trees using the parameter D. For each edge in the highway data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter in meters) but it can be changed by the user. Similarly, the users must specify the CRS (https://epsg.io/). The green index ranges from 0 to 1 and it represents the relative greenness of each section, factoring in proximity to green spaces and tree density.
