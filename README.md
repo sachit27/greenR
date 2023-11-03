@@ -145,6 +145,23 @@ map <- save_as_leaflet(green_index, "File Path")
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
 
+## Green View Index
+This function allows the users to quantify urban greenness through image analysis. Utilizing the [SuperpixelImageSegmentation library](https://cran.r-project.org/web/packages/SuperpixelImageSegmentation/SuperpixelImageSegmentation.pdf), it reads an image of an urban landscape and segments it into superpixels. The Green View Index (GVI) is then calculated by identifying green pixels within these segments. The GVI provides an objective measure of the proportion of visible vegetation in an image and is an important indicator for understanding urban greenness and its impact on ecological and human health.
+
+The GVI is calculated using the following formula:
+
+GVI = $\frac{\text{Number of Green Pixels}}{\text{Total Number of Pixels}}$
+
+Where "Green Pixels" are identified based on a threshold that considers the RGB values of each pixel.
+
+```R
+result <- calculate_and_visualize_GVI("/path/to/your/image.png")
+OpenImageR::imageShow(result$segmented_image) #To visualize the segmented image
+green_pixels_raster <- as.raster(result$green_pixels_image) #To visualize green pixels
+plot(green_pixels_raster)
+```
+![GVI](/img/gvi.png)
+
 ## Citation
 
 To cite this package in publications, use:
