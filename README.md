@@ -55,13 +55,16 @@ Or
 data <- get_osm_data("Fulham, London, United Kingdom")
 ```
 
-## Visualise green spaces
+## Visualise green spaces and clustering
 
-The visualize_green_spaces() function is designed to aid in the visual assessment of green space data. Utilizing an integrated leaflet map, users can explore the distribution and mapping quality of green spaces within a specified area. By plotting this data on an interactive leaflet map, users gain insights into the extent and accuracy of green space representation. After visualizing the green spaces within the desired area, users may wish to contribute to the OpenStreetMap project to enhance the data quality or add unrepresented areas. 
+The visualize_green_spaces() function is designed to aid in the visual assessment of green space data. Utilizing an integrated leaflet map, users can explore the distribution and mapping quality of green spaces within a specified area. By plotting this data on an interactive leaflet map, users gain insights into the extent and accuracy of green space representation. After visualizing the green spaces within the desired area, users may wish to contribute to the OpenStreetMap project to enhance the data quality or add unrepresented areas. Additionally, the green_space_clustering() function initially transforms the green spaces into an equal-area projection to calculate the areas accurately. Post-transformation, the K-means algorithm is applied to these areas, clustering the green spaces based on the number of clusters specified.
 
 ```R
 green_areas_data <- data$green_areas
 visualize_green_spaces(green_areas_data)
+```
+```R
+green_space_clustering(green_areas_data, num_clusters = 3)
 ```
 ![Green_Areas and Clusters](/img/vis.png)
 
