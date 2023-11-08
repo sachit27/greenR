@@ -63,7 +63,7 @@ The visualize_green_spaces() function is designed to aid in the visual assessmen
 green_areas_data <- data$green_areas
 visualize_green_spaces(green_areas_data)
 ```
-![Green_Areas](/img/green_areas.png)
+![Green_Areas and Clusters](/img/vis.png)
 
 ## Accessibility map
 
