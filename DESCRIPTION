@@ -33,4 +33,6 @@ Imports:
     osrm,
     tmap,
     factoextra,
-    RColorBrewer
+    RColorBrewer,
+    spatstat.geom
+    
