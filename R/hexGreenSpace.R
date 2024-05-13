@@ -8,7 +8,7 @@
 #' @param color_palette Character, name of the color palette to use, default is "viridis".
 #' @param save_path Character, file path to save the map as an HTML file, default is NULL (do not save).
 #' @return A Leaflet map displaying the concentration of green spaces.
-#' @importFrom sf st_transform st_centroid st_bbox st_make_grid st_sf
+#' @importFrom sf st_transform st_centroid st_bbox st_make_grid st_sf st_intersects
 #' @importFrom leaflet leaflet addTiles addPolygons addLegend addLayersControl
 #' @importFrom htmlwidgets saveWidget
 #' @importFrom dplyr filter
