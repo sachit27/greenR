@@ -13,7 +13,7 @@ greenR is an open-source R package designed to tackle the challenging task of qu
 
 Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
 
-For more detailed information about the motivation, methodology, and validation, please have a look at this [Preprint](https://www.researchgate.net/publication/372909423_greenR_An_Open-Source_Framework_for_Quantifying_Urban_Greenness)
+For more detailed information about the motivation, methodology, and validation, please have a look at this paper published in [Ecological Indicators](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
 
 ## Installation
 
@@ -169,9 +169,20 @@ plot(green_pixels_raster)
 
 To cite this package in publications, use:
 
-**APA**: Sachit Mahajan. (2023). greenR: An Open-Source Framework for Quantifying Urban Greenness. https://doi.org/10.13140/RG.2.2.36266.18888/1
+**APA**: Mahajan, S., 2024. greenr: An open-source framework for quantifying urban greenness. Ecological Indicators 163, 112108. URL: https:// www.sciencedirect.com/science/article/pii/S1470160X2400565X, doi:https://doi.org/10.1016/j.ecolind.2024.112108
 
-**BibTex Entry**: @article{SMahajan_2023, title={greenR: An Open-Source Framework for Quantifying Urban Greenness}, url={https://rgdoi.net/10.13140/RG.2.2.36266.18888/1}, DOI={10.13140/RG.2.2.36266.18888/1}, journal={preprint}, author={Sachit Mahajan}, year={2023} }
+**BibTex Entry**: @article{MAHAJAN2024112108,
+title = {greenR: An open-source framework for quantifying urban greenness},
+journal = {Ecological Indicators},
+volume = {163},
+pages = {112108},
+year = {2024},
+issn = {1470-160X},
+doi = {https://doi.org/10.1016/j.ecolind.2024.112108},
+url = {https://www.sciencedirect.com/science/article/pii/S1470160X2400565X},
+author = {Sachit Mahajan},
+keywords = {Urban greenness, Open source, Urban analytics, Cities, Street network}
+}
 
 ## Handling SSL Certificate Errors
 
