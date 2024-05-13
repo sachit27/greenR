@@ -1,32 +1,28 @@
-library(sf)
-library(leaflet)
-library(osrm)
-library(dplyr)
-
 #' Calculate and Visualize the Shortest Walking Path to Specified Type of Nearest Green Space with Estimated Walking Time
 #'
-#' This function determines the nearest specified type of green space from a given location and calculates the
-#' shortest walking route to it using the road network optimized for walking. The result is visualized on a Leaflet map
-#' displaying the path, the starting location, and the destination green space. Additionally, it provides the walking distance and estimated time to reach the nearest green space.
+#' Determines the nearest specified type of green space from a given location and calculates the
+#' shortest walking route using the road network optimized for walking. The result is visualized on a Leaflet map
+#' displaying the path, the starting location, and the destination green space, with details on distance and estimated walking time.
 #'
 #' @param highway_data List containing road network data, typically obtained from OpenStreetMap.
-#' @param green_areas_data List containing green areas data, usually obtained from the \code{get_osm_data} function.
-#' @param location_lat Numeric, the latitude of the starting location.
-#' @param location_lon Numeric, the longitude of the starting location.
-#' @param green_space_types Vector of strings specifying the types of green spaces to consider (default is NULL, which considers all types).
-#' @param walking_speed_kmh Numeric, walking speed in kilometers per hour (default is 4.5).
-#' @param osrm_server URL of the OSRM routing server with foot routing support, default is the official OSRM demo server.
+#' @param green_areas_data List containing green areas data, obtained from `get_osm_data`.
+#' @param location_lat Numeric, latitude of the starting location.
+#' @param location_lon Numeric, longitude of the starting location.
+#' @param green_space_types Vector of strings specifying types of green spaces to consider.
+#' @param walking_speed_kmh Numeric, walking speed in kilometers per hour, default is 4.5.
+#' @param osrm_server URL of the OSRM routing server with foot routing support, default is "https://router.project-osrm.org/".
 #' @return A Leaflet map object showing the route, start point, and nearest green space with popup annotations.
 #' @importFrom sf st_as_sf st_transform st_coordinates st_centroid st_sfc st_point st_crs
 #' @importFrom leaflet leaflet addTiles addPolylines addMarkers addPopups addLegend
 #' @importFrom osrm osrmRoute
+#' @importFrom dplyr filter
 #' @examples
 #' \dontrun{
 #'   data <- get_osm_data("Fulham, London, United Kingdom")
 #'   highway_data <- data$highways
 #'   green_areas_data <- data$green_areas
-#'   map <- nearest_greenspace(highway_data, green_areas_data, 51.4761, -0.2008, green_space_types = c("park", "forest"))
-#'   map # Display the map
+#'   map <- nearest_greenspace(highway_data, green_areas_data, 51.4761, -0.2008, c("park", "forest"))
+#'   print(map) # Display the map
 #' }
 #' @export
 nearest_greenspace <- function(highway_data, green_areas_data, location_lat, location_lon, green_space_types = NULL, walking_speed_kmh = 4.5, osrm_server = "https://router.project-osrm.org/") {

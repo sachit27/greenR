@@ -1,24 +1,23 @@
-library(sf)
-library(leaflet)
-library(dplyr)
-
 #' Visualize Green Space Concentration with Hexagonal Bins Using Centroids
 #'
-#' This function creates a hexagonal binning map to visualize the concentration of green spaces within a specified area based on centroids.
+#' Creates a hexagonal binning map to visualize the concentration of green spaces within a specified area based on centroids.
 #' Users can customize the hexagon size, color palette, and other map features.
 #'
-#' @param green_areas_data List containing green areas data (obtained from get_osm_data function).
-#' @param hex_size Numeric, size of the hexagons in meters. Default is 500.
-#' @param color_palette Character, name of the color palette to use. Default is "viridis".
-#' @param save_path Character, file path to save the map as an HTML file. Default is NULL (do not save).
+#' @param green_areas_data List containing green areas data (obtained from the `get_osm_data` function).
+#' @param hex_size Numeric, size of the hexagons in meters, default is 500.
+#' @param color_palette Character, name of the color palette to use, default is "viridis".
+#' @param save_path Character, file path to save the map as an HTML file, default is NULL (do not save).
 #' @return A Leaflet map displaying the concentration of green spaces.
-#'
+#' @importFrom sf st_transform st_centroid st_bbox st_make_grid st_sf
+#' @importFrom leaflet leaflet addTiles addPolygons addLegend addLayersControl
+#' @importFrom htmlwidgets saveWidget
+#' @importFrom dplyr filter
 #' @examples
 #' \dontrun{
 #'   data <- get_osm_data("Fulham, London, United Kingdom")
 #'   green_areas_data <- data$green_areas
 #'   hex_map <- hexGreenSpace(green_areas_data, hex_size = 300)
-#'   hex_map # Display the map
+#'   print(hex_map) # Display the map
 #' }
 #' @export
 hexGreenSpace <- function(green_areas_data, hex_size = 500, color_palette = "viridis", save_path = NULL) {
