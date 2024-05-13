@@ -165,6 +165,29 @@ plot(green_pixels_raster)
 ```
 ![GVI](/img/gvi.png)
 
+## Green Space Similarity Index (GSSI)
+
+The `gssi()` function calculates the Green Space Similarity Index (GSSI), a composite metric for evaluating and comparing urban green spaces across different regions by analyzing their size and spatial connectivity.
+
+#### Functionality
+This function transforms spatial data into an equal-area projection for accurate area measurements, computes the total area of green spaces, and assesses their spatial connectivity using the Average Nearest Neighbor Distance (ANND). This dual approach provides a comprehensive view of the distribution and accessibility of green spaces.
+
+#### Implementation
+The GSSI is calculated by inversely weighting the coefficient of variation in area sizes with the ANND, offering a score that reflects the abundance and accessibility of green spaces. Scores are normalized against the highest scoring city in the dataset for relative comparisons:
+
+```r
+# Example of calculating GSSI for multiple cities
+d1 <- get_osm_data("New Delhi, India")
+dsf <- d1$green_areas$osm_polygons
+d2 <- get_osm_data("Basel, Switzerland")
+bsf <- d2$green_areas$osm_polygons
+d3 <- get_osm_data("Medellin, Colombia")
+msf <- d3$green_areas$osm_polygons
+
+cities_data <- list(dsf, bsf, msf)
+gssi_values <- gssi(cities_data, "ESRI:54009")
+```
+
 ## Citation
 
 To cite this package in publications, use:
