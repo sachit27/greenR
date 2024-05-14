@@ -35,4 +35,5 @@ Imports:
     factoextra,
     RColorBrewer,
     spatstat.geom,
-    stats
+    stats,
+    units

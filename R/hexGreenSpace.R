@@ -1,98 +1,140 @@
-#' Visualize Green Space Concentration with Hexagonal Bins Using Centroids
+#' Visualize Green Space Coverage with Hexagonal Bins
 #'
-#' Creates a hexagonal binning map to visualize the concentration of green spaces within a specified area based on centroids.
+#' Creates a hexagonal binning map to visualize the percentage of green space coverage within a specified area.
 #' Users can customize the hexagon size, color palette, and other map features.
 #'
-#' @param green_areas_data List containing green areas data (obtained from the `get_osm_data` function).
+#' @param green_areas_data List containing green areas data (obtained from the `get_osm_data` function), default is NULL.
+#' @param tree_data List containing tree data (obtained from the `get_osm_data` function), default is NULL.
 #' @param hex_size Numeric, size of the hexagons in meters, default is 500.
 #' @param color_palette Character, name of the color palette to use, default is "viridis".
 #' @param save_path Character, file path to save the map as an HTML file, default is NULL (do not save).
-#' @return A list containing a Leaflet map displaying the concentration of green spaces and a ggplot2 violin plot.
-#' @importFrom sf st_transform st_centroid st_bbox st_make_grid st_sf st_intersects
-#' @importFrom leaflet leaflet addTiles addPolygons addLegend addLayersControl
-#' @importFrom ggplot2 ggplot aes geom_violin theme_minimal labs geom_jitter geom_boxplot
+#' @return A list containing a Leaflet map displaying the percentage of green space coverage, and a ggplot2 violin plot.
+#' @importFrom sf st_transform st_bbox st_make_grid st_sf st_intersects st_union st_area st_intersection st_join st_buffer st_make_valid
+#' @importFrom leaflet leaflet addTiles addPolygons addLegend addLayersControl colorNumeric addProviderTiles
+#' @importFrom ggplot2 ggplot aes geom_violin theme_minimal labs annotate
 #' @importFrom htmlwidgets saveWidget
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter group_by summarise coalesce
+#' @importFrom units set_units
 #' @examples
 #' \dontrun{
-#'   data <- get_osm_data("Fulham, London, United Kingdom")
+#'   data <- get_osm_data("City of London, United Kingdom")
 #'   green_areas_data <- data$green_areas
-#'   hex_map <- hexGreenSpace(green_areas_data, hex_size = 300)
+#'   tree_data <- data$trees
+#'   hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300)
 #'   print(hex_map$map) # Display the hex bin map
 #'   print(hex_map$violin) # Display the violin plot
 #' }
 #' @export
-hexGreenSpace <- function(green_areas_data, hex_size = 500, color_palette = "viridis", save_path = NULL) {
-  # Ensure data is in the correct format
-  if (!inherits(green_areas_data$osm_polygons, "sf")) {
-    stop("green_areas_data$osm_polygons should be an 'sf' object.")
+hexGreenSpace <- function(green_areas_data = NULL, tree_data = NULL, hex_size = 500, color_palette = "viridis", save_path = NULL) {
+  if (is.null(green_areas_data) & is.null(tree_data)) {
+    stop("At least one of green_areas_data or tree_data must be provided.")
   }
 
-  # Transform to Web Mercator for visualization
-  green_areas_data <- sf::st_transform(green_areas_data$osm_polygons, 3857)
+  hex_size <- units::set_units(hex_size, "meters")
 
-  # Calculate centroids of green areas
-  centroids <- sf::st_centroid(green_areas_data)
+  hex_grid <- NULL
 
-  # Create hexagonal grid
-  bbox <- sf::st_bbox(centroids)
-  hex_grid <- sf::st_make_grid(centroids, cellsize = hex_size, square = FALSE)
-  hex_grid <- sf::st_sf(geometry = hex_grid)
+  # Process green areas data
+  if (!is.null(green_areas_data)) {
+    if (!inherits(green_areas_data$osm_polygons, "sf")) {
+      stop("green_areas_data$osm_polygons should be an 'sf' object.")
+    }
 
-  # Count number of centroids in each hexagon
-  hex_counts <- sf::st_intersects(hex_grid, centroids)
-  hex_grid$counts <- lengths(hex_counts)
+    green_areas <- green_areas_data$osm_polygons
+    green_areas <- sf::st_transform(green_areas, 3857)
+    green_areas <- sf::st_make_valid(green_areas)
 
-  # Transform hex grid back to WGS 84 for Leaflet
+    if (is.null(hex_grid)) {
+      hex_grid <- sf::st_make_grid(green_areas, cellsize = hex_size, square = FALSE)
+      hex_grid <- sf::st_sf(geometry = hex_grid)
+      hex_grid$area <- as.numeric(sf::st_area(hex_grid))
+    }
+
+    green_intersections <- sf::st_intersection(hex_grid, green_areas)
+    green_intersections$intersection_area <- as.numeric(sf::st_area(green_intersections))
+
+    green_coverage_df <- green_intersections %>%
+      dplyr::group_by(geometry) %>%
+      dplyr::summarise(total_green_area = sum(intersection_area, na.rm = TRUE))
+
+    hex_grid <- sf::st_join(hex_grid, green_coverage_df, join = sf::st_intersects)
+  }
+
+  # Process tree data
+  if (!is.null(tree_data)) {
+    if (!inherits(tree_data$osm_points, "sf")) {
+      stop("tree_data$osm_points should be an 'sf' object.")
+    }
+
+    trees <- tree_data$osm_points
+    trees <- sf::st_transform(trees, 3857)
+    trees <- sf::st_make_valid(trees)
+
+    if (is.null(hex_grid)) {
+      hex_grid <- sf::st_make_grid(trees, cellsize = hex_size, square = FALSE)
+      hex_grid <- sf::st_sf(geometry = hex_grid)
+      hex_grid$area <- as.numeric(sf::st_area(hex_grid))
+    }
+
+    tree_buffers <- sf::st_buffer(trees, dist = 5) # Assuming 5 meters radius for tree canopy
+    tree_intersections <- sf::st_intersection(hex_grid, tree_buffers)
+    tree_intersections$intersection_area <- as.numeric(sf::st_area(tree_intersections))
+
+    tree_coverage_df <- tree_intersections %>%
+      dplyr::group_by(geometry) %>%
+      dplyr::summarise(total_tree_area = sum(intersection_area, na.rm = TRUE))
+
+    hex_grid <- sf::st_join(hex_grid, tree_coverage_df, join = sf::st_intersects)
+  }
+
+  hex_grid$total_intersection_area <- dplyr::coalesce(hex_grid$total_green_area, 0) + dplyr::coalesce(hex_grid$total_tree_area, 0)
+  hex_grid$coverage_pct <- (hex_grid$total_intersection_area / hex_grid$area) * 100
+  hex_grid$coverage_pct[is.na(hex_grid$coverage_pct)] <- 0
+
   hex_grid <- sf::st_transform(hex_grid, 4326)
-
-  # Calculate summary statistics
-  total_green_spaces <- sum(hex_grid$counts)
-  avg_green_spaces_per_hex <- mean(hex_grid$counts)
 
   # Create Leaflet map
   map <- leaflet::leaflet() %>%
-    leaflet::addTiles() %>%
+    leaflet::addTiles(group = "OSM") %>%
+    leaflet::addProviderTiles(providers$CartoDB.Positron, group = "Positron") %>%
     leaflet::addPolygons(
       data = hex_grid,
-      fillColor = ~leaflet::colorNumeric(color_palette, hex_grid$counts)(hex_grid$counts),
-      fillOpacity = 0.5,
+      fillColor = ~leaflet::colorNumeric(color_palette, hex_grid$coverage_pct)(hex_grid$coverage_pct),
+      fillOpacity = 0.8,
       color = "black",
       weight = 1,
       group = "Hex Bins",
-      popup = ~paste("Count: ", hex_grid$counts)
+      popup = ~paste("Coverage: ", round(hex_grid$coverage_pct, 2), "%")
     ) %>%
     leaflet::addLegend(
       "bottomright",
-      pal = leaflet::colorNumeric(color_palette, hex_grid$counts),
-      values = hex_grid$counts,
-      title = "Number of Green Spaces",
+      pal = leaflet::colorNumeric(color_palette, hex_grid$coverage_pct),
+      values = hex_grid$coverage_pct,
+      title = "Percentage of Green Space Coverage",
       opacity = 0.7
     ) %>%
     leaflet::addLayersControl(
+      baseGroups = c("OSM", "Positron"),
       overlayGroups = c("Hex Bins"),
       options = leaflet::layersControlOptions(collapsed = TRUE)
     )
 
   # Create violin plot
-  counts_df <- as.data.frame(hex_grid$counts)
-  colnames(counts_df) <- c("counts")
+  coverage_df <- as.data.frame(hex_grid$coverage_pct)
+  colnames(coverage_df) <- c("coverage_pct")
 
-  violin_plot <- ggplot2::ggplot(counts_df, ggplot2::aes(x = factor(1), y = counts)) +
+  violin_plot <- ggplot2::ggplot(coverage_df, ggplot2::aes(x = factor(1), y = coverage_pct)) +
     ggplot2::geom_violin(fill = "lightblue", color = "black") +
-    ggplot2::geom_jitter(width = 0.1, alpha = 0.5) +
-    ggplot2::geom_boxplot(width = 0.1, fill = "white", color = "black", outlier.color = "red") +
     ggplot2::theme_minimal() +
-    ggplot2::labs(title = "Distribution of Green Spaces per Hexagon", x = "Hexagon", y = "Count of Green Spaces") +
-    ggplot2::annotate("text", x = 1, y = max(counts_df$counts), label = sprintf("Mean: %.2f\nMedian: %.2f\nStd Dev: %.2f",
-                                                                                mean(counts_df$counts),
-                                                                                median(counts_df$counts),
-                                                                                sd(counts_df$counts)),
+    ggplot2::labs(title = "Percentage of Green Space Coverage per Hexagon", x = "Hexagon", y = "Coverage (%)") +
+    ggplot2::annotate("text", x = 1, y = max(coverage_df$coverage_pct), label = sprintf("Mean: %.2f%%\nMedian: %.2f%%\nStd Dev: %.2f%%",
+                                                                                        mean(coverage_df$coverage_pct),
+                                                                                        median(coverage_df$coverage_pct),
+                                                                                        sd(coverage_df$coverage_pct)),
                       hjust = 1.1, vjust = 1.1, size = 3, color = "blue")
 
   # Print summary statistics
-  cat("Total number of green spaces:", total_green_spaces, "\n")
-  cat("Average number of green spaces per hexagon:", avg_green_spaces_per_hex, "\n")
+  cat("Average percentage of green space coverage per hexagon:", mean(coverage_df$coverage_pct), "%\n")
 
   # Save map as HTML if save_path is provided
   if (!is.null(save_path)) {
