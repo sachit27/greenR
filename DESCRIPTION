@@ -34,4 +34,5 @@ Imports:
     tmap,
     factoextra,
     RColorBrewer,
-    spatstat.geom
+    spatstat.geom,
+    stats
