@@ -12,7 +12,7 @@
 #' @param walking_speed_kmh Numeric, walking speed in kilometers per hour, default is 4.5.
 #' @param osrm_server URL of the OSRM routing server with foot routing support, default is "https://router.project-osrm.org/".
 #' @return A Leaflet map object showing the route, start point, and nearest green space with popup annotations.
-#' @importFrom sf st_as_sf st_transform st_coordinates st_centroid st_sfc st_point st_crs
+#' @importFrom sf st_as_sf st_transform st_coordinates st_centroid st_sfc st_point st_crs st_distance
 #' @importFrom leaflet leaflet addTiles addPolylines addMarkers addPopups addLegend
 #' @importFrom osrm osrmRoute
 #' @importFrom dplyr filter
