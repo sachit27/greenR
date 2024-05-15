@@ -68,14 +68,47 @@ green_space_clustering(green_areas_data, num_clusters = 3)
 ```
 ![Green_Areas and Clusters](/img/vis.png)
 
-## Accessibility map
+## Accessibility analysis
 
-This function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
+The 'accessibility_greenspace' function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
 
 ```R
 accessibility_greenspace(green_areas_data, 47.56427527336772, 7.595820936462059)
 ```
 ![Isochrone](/img/isochrone.png)
+
+The 'nearest_greenspace' function calculates and visualizes the shortest walking route to the nearest green space of a specified type from a given location. You can also select the type of green space (c("park", "forest")). By default it looks at all the green space.
+
+```R
+map <- nearest_greenspace(data$highways, data$green_areas, 51.4761, -0.2008)
+print(map)  # Displays the interactive map
+```
+![Nearest GreenSpace](/img/nearest_greenspace.png)
+
+## Visualize green space coverage with Hexagonal Bins
+
+The 'hexGreenSpace' function offers an innovative approach to visualizing the distribution and density of green spaces within a specified urban area using hexagonal binning. This method provides a clear, quantifiable view of green coverage, integrating both green areas and tree data to present a comprehensive spatial analysis.
+
+### Key Features
+
+1. Customizable Hexagon Size: Adjust the granularity of the analysis with custom hexagon dimensions.
+2. Color-Coded Visualization: Utilize a range of color palettes to enhance the visual appeal and interpretability of the map.
+3. Interactive Maps: Explore detailed interactive maps generated through Leaflet for an intuitive understanding of data.
+4. Statistical Insights: Access a violin plot displaying the distribution of green space coverage across the hexagons, with key statistical annotations like mean, median, and standard deviation directly on the plot for immediate insights.
+
+```R
+data <- get_osm_data("City of London, United Kingdom")
+green_areas_data <- data$green_areas
+tree_data <- data$trees
+
+# Generate the visualization
+hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300, color_palette = "viridis")
+
+# Display the hex bin map and the statistical violin plot
+print(hex_map$map)  # Display the map
+print(hex_map$violin)  # Display the violin plot
+```
+![Hexbinplot](/img/hexv.png)
 
 ## Calculate the green index for the specified city
 
