@@ -195,6 +195,13 @@ result <- calculate_and_visualize_GVI("/path/to/your/image.png")
 OpenImageR::imageShow(result$segmented_image) #To visualize the segmented image
 green_pixels_raster <- as.raster(result$green_pixels_image) #To visualize green pixels
 plot(green_pixels_raster)
+
+To save images directly within R, you can use:
+# Save the segmented image
+OpenImageR::writeImage(result$segmented_image, "/path/to/save/segmented_image.png")
+
+# Save the green pixels image
+OpenImageR::writeImage(result$green_pixels_image, "/path/to/save/green_pixels_image.png")
 ```
 ![GVI](/img/gvi.png)
 
