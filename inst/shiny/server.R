@@ -1,7 +1,10 @@
 server <- function(input, output, session) {
 
-  # Load necessary library
+  # Load necessary libraries
   library(dplyr)
+  library(leaflet)
+  library(DT)
+  library(sf)
 
   # Reactive expression for OSM data
   osm_data <- eventReactive(input$osm_button, {
