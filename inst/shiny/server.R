@@ -1,12 +1,7 @@
-library(shiny)
-library(leaflet)
-library(DT)
-library(sf)
-library(osrm)
-
-# Assuming you have other required libraries and functions like get_osm_data, calculate_green_index, etc.
-
 server <- function(input, output, session) {
+
+  # Load necessary library
+  library(dplyr)
 
   # Reactive expression for OSM data
   osm_data <- eventReactive(input$osm_button, {
@@ -26,7 +21,7 @@ server <- function(input, output, session) {
   # Green Index calculation and rendering
   green_index <- eventReactive(input$green_index_button, {
     showNotification("Calculating Green Index...", type = "message")
-    index <- calculate_green_index(osm_data(), input$crs_code, input$D)
+    index <- calculate_green_index(osm_data(), input$crs_code, input$D, input$buffer_distance)
     showNotification("Green Index calculated.", type = "message")
     return(index)
   })
@@ -34,9 +29,34 @@ server <- function(input, output, session) {
   output$green_index_table <- DT::renderDataTable({
     index <- green_index()
     if (!is.null(index)) {
-      DT::datatable(index, options = list(pageLength = 25))
+      DT::datatable(index %>% select(osm_id, green_index_green_area, green_index_tree, green_index),
+                    options = list(pageLength = 25))
     }
   })
+
+  output$download_csv <- downloadHandler(
+    filename = function() {
+      paste("green_index_data", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      index <- green_index()
+      if (!is.null(index)) {
+        write.csv(index %>% select(osm_id, green_index_green_area, green_index_tree, green_index), file)
+      }
+    }
+  )
+
+  output$download_json <- downloadHandler(
+    filename = function() {
+      paste("green_index_data", Sys.Date(), ".geojson", sep = "")
+    },
+    content = function(file) {
+      index <- green_index()
+      if (!is.null(index)) {
+        sf::st_write(index, file)
+      }
+    }
+  )
 
   output$green_index_plot <- leaflet::renderLeaflet({
     index <- green_index()
@@ -51,27 +71,6 @@ server <- function(input, output, session) {
       calculate_percentage(index)
     }
   })
-
-  # Download Handlers for Green Index
-  output$download_html <- downloadHandler(
-    filename = function() { "green_index_map.html" },
-    content = function(file) {
-      index <- green_index()
-      if (!is.null(index)) {
-        save_as_leaflet(index, file)
-      }
-    }
-  )
-
-  output$download_json <- downloadHandler(
-    filename = function() { "green_index_data.geojson" },
-    content = function(file) {
-      index <- green_index()
-      if (!is.null(index)) {
-        save_json(index, file)
-      }
-    }
-  )
 
   # Clustering Analysis
   output$cluster_map <- renderLeaflet({
@@ -96,4 +95,58 @@ server <- function(input, output, session) {
     }
   })
 
+  # GVI Calculation and Visualization
+  gvi_result <- eventReactive(input$gvi_button, {
+    req(input$image_path)
+    showNotification("Calculating Green View Index (GVI)...", type = "message")
+    result <- calculate_and_visualize_GVI(input$image_path$datapath)
+    showNotification("GVI calculated.", type = "message")
+    return(result)
+  })
+
+  output$gvi_segmented_image <- renderPlot({
+    result <- gvi_result()
+    if (!is.null(result)) {
+      OpenImageR::imageShow(result$segmented_image)
+    }
+  })
+
+  output$gvi_green_pixels_image <- renderPlot({
+    result <- gvi_result()
+    if (!is.null(result)) {
+      green_pixels_raster <- as.raster(result$green_pixels_image)
+      plot(green_pixels_raster)
+    }
+  })
+
+  output$gvi_value <- renderPrint({
+    result <- gvi_result()
+    if (!is.null(result)) {
+      print(paste("Green View Index: ", result$GVI))
+    }
+  })
+
+  output$download_segmented_image <- downloadHandler(
+    filename = function() {
+      paste("segmented_image", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      result <- gvi_result()
+      if (!is.null(result)) {
+        OpenImageR::writeImage(result$segmented_image, file)
+      }
+    }
+  )
+
+  output$download_green_pixels_image <- downloadHandler(
+    filename = function() {
+      paste("green_pixels_image", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      result <- gvi_result()
+      if (!is.null(result)) {
+        OpenImageR::writeImage(result$green_pixels_image, file)
+      }
+    }
+  )
 }

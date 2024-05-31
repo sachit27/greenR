@@ -2,17 +2,20 @@
 % Please edit documentation in R/hexGreenSpace.R
 \name{hexGreenSpace}
 \alias{hexGreenSpace}
-\title{Visualize Green Space Concentration with Hexagonal Bins Using Centroids}
+\title{Visualize Green Space Coverage with Hexagonal Bins}
 \usage{
 hexGreenSpace(
-  green_areas_data,
+  green_areas_data = NULL,
+  tree_data = NULL,
   hex_size = 500,
   color_palette = "viridis",
   save_path = NULL
 )
 }
 \arguments{
-\item{green_areas_data}{List containing green areas data (obtained from the \code{get_osm_data} function).}
+\item{green_areas_data}{List containing green areas data (obtained from the \code{get_osm_data} function), default is NULL.}
+
+\item{tree_data}{List containing tree data (obtained from the \code{get_osm_data} function), default is NULL.}
 
 \item{hex_size}{Numeric, size of the hexagons in meters, default is 500.}
 
@@ -21,17 +24,18 @@ hexGreenSpace(
 \item{save_path}{Character, file path to save the map as an HTML file, default is NULL (do not save).}
 }
 \value{
-A list containing a Leaflet map displaying the concentration of green spaces and a ggplot2 violin plot.
+A list containing a Leaflet map displaying the percentage of green space coverage, and a ggplot2 violin plot.
 }
 \description{
-Creates a hexagonal binning map to visualize the concentration of green spaces within a specified area based on centroids.
+Creates a hexagonal binning map to visualize the percentage of green space coverage within a specified area.
 Users can customize the hexagon size, color palette, and other map features.
 }
 \examples{
 \dontrun{
-  data <- get_osm_data("Fulham, London, United Kingdom")
+  data <- get_osm_data("City of London, United Kingdom")
   green_areas_data <- data$green_areas
-  hex_map <- hexGreenSpace(green_areas_data, hex_size = 300)
+  tree_data <- data$trees
+  hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300)
   print(hex_map$map) # Display the hex bin map
   print(hex_map$violin) # Display the violin plot
 }

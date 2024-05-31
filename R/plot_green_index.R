@@ -3,7 +3,7 @@
 #' This function plots the green index for the highway network with extensive customization options.
 #' Users can set various parameters like text size, color palette, resolution, base map, line width, line type, and more.
 #'
-#' @param green_index A data frame containing the calculated green index values for each edge.
+#' @param green_index_data A data frame containing the calculated green index values for each edge.
 #' @param base_map Character, base map to use. Default is "CartoDB.DarkMatter".
 #' Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
 #' "MtbMap", "Stamen.TonerLines", and "Stamen.TonerLabels".
@@ -21,11 +21,10 @@
 #' @param interactive Logical, whether to return an interactive plot using leaflet. Default is FALSE.
 #' @param filename Character, filename to save the plot. Supported formats include HTML. Default is NULL (no file saved).
 #'
-#' @importFrom leaflet leaflet addProviderTiles addPolylines colorBin
+#' @importFrom leaflet leaflet addProviderTiles addPolylines addLayersControl colorBin
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
 #' @export
-
 plot_green_index <- function(green_index_data,
                              base_map = "CartoDB.DarkMatter",
                              colors = c("#F0BB62", "#BFDB38", "#367E18"),
@@ -51,19 +50,20 @@ plot_green_index <- function(green_index_data,
 
   if (interactive) {
     plot <- leaflet(data = edges_sf) %>%
-      addProviderTiles(base_map) %>%
-      addPolylines(color = ~color_palette(green_index_data$green_index),
-                   weight = line_width) %>%
+      addProviderTiles("CartoDB.DarkMatter", group = "Dark Matter") %>%
+      addProviderTiles("CartoDB.Positron", group = "Positron") %>%
+      addPolylines(color = ~color_palette(green_index_data$green_index), weight = line_width) %>%
+      addLayersControl(baseGroups = c("Dark Matter", "Positron"),
+                       options = layersControlOptions(collapsed = FALSE)) %>%
       addLegend(pal = color_palette, values = ~green_index_data$green_index,
                 title = legend_title, position = "bottomright")
-
-    # Print the interactive plot
-    return(plot)
 
     # Save the interactive map to a file if a filename is provided
     if (!is.null(filename)) {
       htmlwidgets::saveWidget(plot, file = filename)
     }
+
+    return(plot)
 
   } else {
     # Create a ggplot for static plot

@@ -2,29 +2,29 @@
 % Please edit documentation in R/calculate_green_index.R
 \name{calculate_green_index}
 \alias{calculate_green_index}
-\title{Calculate green index for each edge}
+\title{Calculate Green Index}
 \usage{
-calculate_green_index(osm_data, crs_code, D = 100)
+calculate_green_index(osm_data, crs_code, D = 100, buffer_distance = 120)
 }
 \arguments{
-\item{osm_data}{The OpenStreetMap data. This should be a list with three components:
-highways, green_areas, and trees. Each component should be a spatial data frame.
-You can use the osmdata package to get the required data.}
+\item{osm_data}{List containing OSM data (highways, green_areas, trees).}
 
-\item{crs_code}{The EPSG code for the Coordinate Reference System (CRS).}
+\item{crs_code}{Coordinate reference system code for transformations.}
 
-\item{D}{The decay parameter in the decay function, default is 100.}
+\item{D}{Distance decay parameter (default = 100).}
+
+\item{buffer_distance}{Buffer distance for spatial joins (default = 120).}
 }
 \value{
-A data frame with the green index for each edge.
+Spatial data frame with calculated green index.
 }
 \description{
-This function calculates the green index for each edge in the road network.
+This function calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB and Duckplyr.
+The green index is calculated based on the proximity of highways to green areas and trees.
 }
 \examples{
 \dontrun{
-# osm_data should be a list with three components: highways, green_areas, and trees
-# You can use osmdata package to get this data.
-calculate_green_index(osm_data, 2056, D = 100)
+  osm_data <- get_osm_data("Basel, Switzerland")
+  green_index <- calculate_green_index(osm_data, 2056)
 }
 }

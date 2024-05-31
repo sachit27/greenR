@@ -1,80 +1,156 @@
-#' Calculate green index for each edge
+#' Calculate Green Index
 #'
-#' This function calculates the green index for each edge in the road network.
+#' This function calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB and Duckplyr.
+#' The green index is calculated based on the proximity of highways to green areas and trees.
 #'
-#' @param osm_data The OpenStreetMap data. This should be a list with three components: 
-#'                 highways, green_areas, and trees. Each component should be a spatial data frame. 
-#'                 You can use the osmdata package to get the required data.
-#' @param crs_code The EPSG code for the Coordinate Reference System (CRS).
-#' @param D The decay parameter in the decay function, default is 100.
-#' @return A data frame with the green index for each edge.
+#' @param osm_data List containing OSM data (highways, green_areas, trees).
+#' @param crs_code Coordinate reference system code for transformations.
+#' @param D Distance decay parameter (default = 100).
+#' @param buffer_distance Buffer distance for spatial joins (default = 120).
+#'
+#' @return Spatial data frame with calculated green index.
+#'
+#' @importFrom sf st_transform st_union st_geometry st_as_text st_crs st_drop_geometry st_as_sf
+#' @importFrom DBI dbConnect dbExecute dbWriteTable dbGetQuery dbDisconnect
+#' @importFrom duckdb duckdb
+#' @importFrom data.table as.data.table
+#' @importFrom dplyr %>% select
 #' @export
 #' @examples
 #' \dontrun{
-#' # osm_data should be a list with three components: highways, green_areas, and trees
-#' # You can use osmdata package to get this data.
-#' calculate_green_index(osm_data, 2056, D = 100)
+#'   osm_data <- get_osm_data("Basel, Switzerland")
+#'   green_index <- calculate_green_index(osm_data, 2056)
 #' }
-calculate_green_index <- function(osm_data, crs_code, D = 100) {
 
-  # Extract data from the list
+calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance = 120) {
+  # Start time
+  start_time <- Sys.time()
+
+  # Establish DuckDB connection
+  con <- DBI::dbConnect(duckdb::duckdb())
+  DBI::dbExecute(con, "INSTALL spatial;")
+  DBI::dbExecute(con, "LOAD spatial;")
+
+  # Extract and transform data
   highways_data <- osm_data$highways
   green_areas_data <- osm_data$green_areas
   trees_data <- osm_data$trees
 
-  edges <- highways_data$osm_lines %>%
-    sf::st_transform(crs = crs_code) %>%
-    tibble::as_tibble() %>%
-    dplyr::select(osm_id, geometry)
+  edges <- sf::st_transform(highways_data$osm_lines, crs = crs_code)
+  green_areas <- sf::st_transform(green_areas_data$osm_polygons, crs = crs_code) %>% sf::st_union()
+  trees <- sf::st_transform(trees_data$osm_points, crs = crs_code)
 
-  green_areas <- green_areas_data$osm_polygons %>%
-    sf::st_transform(crs = crs_code) %>%
-    sf::st_union()
+  # Ensure CRS is correctly set
+  sf::st_crs(edges) <- crs_code
+  sf::st_crs(green_areas) <- crs_code
+  sf::st_crs(trees) <- crs_code
 
-  trees <- trees_data$osm_points %>%
-    sf::st_transform(crs = crs_code)
+  # Prepare data frames and add geometry as WKT
+  edges_df <- sf::st_drop_geometry(edges)
+  edges_df$geometry <- sf::st_as_text(sf::st_geometry(edges))
+  edges_df$id <- seq_len(nrow(edges_df))
+  green_areas_df <- data.frame(geometry = sf::st_as_text(sf::st_geometry(green_areas)))
+  trees_df <- data.frame(geometry = sf::st_as_text(sf::st_geometry(trees)))
 
-  sf::st_crs(green_areas) <- sf::st_crs(edges)
-  sf::st_crs(trees) <- sf::st_crs(edges)
+  # Check and rename duplicate columns
+  check_duplicate_columns(edges_df)
+  check_duplicate_columns(green_areas_df)
+  check_duplicate_columns(trees_df)
 
-  # Define the distance decay functions
-  distance_decay_green_area <- function(edge, green_area) {
+  edges_df <- rename_duplicate_columns(edges_df)
+  green_areas_df <- rename_duplicate_columns(green_areas_df)
+  trees_df <- rename_duplicate_columns(trees_df)
 
-    distance_to_green_area <- sf::st_distance(edge, green_area)
+  # Write data frames to DuckDB
+  DBI::dbWriteTable(con, "edges", edges_df, overwrite = TRUE)
+  DBI::dbWriteTable(con, "green_areas", green_areas_df, overwrite = TRUE)
+  DBI::dbWriteTable(con, "trees", trees_df, overwrite = TRUE)
 
-    decay_function <- exp(-(distance_to_green_area/D))
+  # Add and populate the geometry columns in DuckDB
+  DBI::dbExecute(con, "ALTER TABLE edges ADD COLUMN geom GEOMETRY;")
+  DBI::dbExecute(con, "UPDATE edges SET geom = ST_GeomFromText(geometry);")
+  DBI::dbExecute(con, "ALTER TABLE green_areas ADD COLUMN geom GEOMETRY;")
+  DBI::dbExecute(con, "UPDATE green_areas SET geom = ST_GeomFromText(geometry);")
+  DBI::dbExecute(con, "ALTER TABLE trees ADD COLUMN geom GEOMETRY;")
+  DBI::dbExecute(con, "UPDATE trees SET geom = ST_GeomFromText(geometry);")
 
-    decay_function <- pmax(pmin(decay_function, 1), 0)
-
-    return(decay_function)
-  }
-
-  distance_decay_tree <- function(edge, trees) {
-
-    distances_to_trees <- sf::st_distance(edge, trees)
-    min_distance_to_tree <- min(distances_to_trees)
-
-    decay_function <- exp(-(min_distance_to_tree/D))
-
-    decay_function <- pmax(pmin(decay_function, 1), 0)
-
-    return(decay_function)
-  }
-
-  future::plan(future::multisession)
-
-  edges <- edges %>%
-    dplyr::mutate(
-      green_index_green_area = purrr::map_dbl(sf::st_geometry(geometry), function(x) sum(purrr::map_dbl(green_areas, ~distance_decay_green_area(x, .x), na.rm = TRUE))),
-      green_index_tree = purrr::map_dbl(sf::st_geometry(geometry), function(x) distance_decay_tree(x, trees))
+  # SQL query for green index calculation using ST_DWithin
+  query <- "
+    WITH green_area_distances AS (
+      SELECT
+        e.id,
+        MIN(ST_Distance(e.geom, g.geom)) AS distance
+      FROM
+        edges e
+      JOIN green_areas g ON ST_DWithin(e.geom, g.geom, ?)
+      GROUP BY e.id
+    ),
+    tree_distances AS (
+      SELECT
+        e.id,
+        MIN(ST_Distance(e.geom, t.geom)) AS distance
+      FROM
+        edges e
+      JOIN trees t ON ST_DWithin(e.geom, t.geom, ?)
+      GROUP BY e.id
     )
+    SELECT
+      e.id,
+      e.osm_id,
+      e.geometry,
+      COALESCE(exp(-gad.distance / ?), 0) AS green_index_green_area,
+      COALESCE(exp(-td.distance / ?), 0) AS green_index_tree
+    FROM
+      edges e
+      LEFT JOIN green_area_distances gad ON e.id = gad.id
+      LEFT JOIN tree_distances td ON e.id = td.id;
+  "
 
-  # Compute normalized green index
-  edges <- edges %>%
-    dplyr::mutate(
-      green_index = (green_index_green_area + green_index_tree) / 2,
-      green_index = (green_index - min(green_index)) / (max(green_index) - min(green_index))
-    )
+  edges_df <- DBI::dbGetQuery(con, query, params = list(buffer_distance, buffer_distance, D, D))
+
+  # Convert result to data.table and calculate the green index
+  edges_dt <- data.table::as.data.table(edges_df)
+  edges_dt[, green_index := (green_index_green_area + green_index_tree) / 2]
+
+  min_green_index <- min(edges_dt$green_index, na.rm = TRUE)
+  max_green_index <- max(edges_dt$green_index, na.rm = TRUE)
+
+  edges_dt[, green_index := (green_index - min_green_index) / (max_green_index - min_green_index)]
+
+  edges_dt <- edges_dt[, .(osm_id, geometry, green_index_green_area, green_index_tree, green_index)]
+
+  edges <- sf::st_as_sf(edges_dt, wkt = "geometry", crs = crs_code)
+
+  # Disconnect DuckDB
+  DBI::dbDisconnect(con, shutdown = TRUE)
+
+  # End time
+  end_time <- Sys.time()
+
+  # Calculate and print processing time
+  processing_time <- end_time - start_time
+  print(paste("Processing time:", processing_time))
 
   return(edges)
+}
+
+#' Helper function to rename duplicate columns
+#' @param df Data frame with potential duplicate columns
+#' @return Data frame with unique column names
+rename_duplicate_columns <- function(df) {
+  colnames(df) <- make.unique(tolower(colnames(df)))
+  return(df)
+}
+
+#' Function to check for duplicate columns and print them
+#' @param df Data frame to check for duplicate columns
+#' @return Vector of duplicate column names
+check_duplicate_columns <- function(df) {
+  dup_cols <- colnames(df)[duplicated(tolower(colnames(df)))]
+  if (length(dup_cols) > 0) {
+    cat("Duplicate columns found:", paste(dup_cols, collapse = ", "), "\n")
+  } else {
+    cat("No duplicate columns found.\n")
+  }
+  return(dup_cols)
 }

@@ -23,6 +23,8 @@ plot_green_index(
 )
 }
 \arguments{
+\item{green_index_data}{A data frame containing the calculated green index values for each edge.}
+
 \item{base_map}{Character, base map to use. Default is "CartoDB.DarkMatter".
 Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
 "MtbMap", "Stamen.TonerLines", and "Stamen.TonerLabels".}
@@ -52,8 +54,6 @@ Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
 \item{interactive}{Logical, whether to return an interactive plot using leaflet. Default is FALSE.}
 
 \item{filename}{Character, filename to save the plot. Supported formats include HTML. Default is NULL (no file saved).}
-
-\item{green_index}{A data frame containing the calculated green index values for each edge.}
 }
 \description{
 This function plots the green index for the highway network with extensive customization options.
