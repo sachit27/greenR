@@ -8,7 +8,7 @@ ui <- fluidPage(
 
   sidebarLayout(
     sidebarPanel(
-      helpText("This app allows you to download OSM data, calculate the green index, visualize and save the results, perform clustering of green areas, and analyze green space accessibility."),
+      helpText("This application allows you to download OSM data, calculate the green index, visualize and save the results, perform clustering of green areas, analyze green space accessibility and Green View Index."),
 
       # Input for OSM data
       textInput("bbox", "Enter location/bounding box"),
@@ -22,6 +22,7 @@ ui <- fluidPage(
       # Download Buttons
       downloadButton("download_csv", "Download Data as CSV"),
       downloadButton("download_json", "Download Data as GeoJSON"),
+      downloadButton("download_html", "Download Green Index Map as HTML"),  # Add this line
 
       # Clustering Inputs
       numericInput("num_clusters", "Number of Clusters", value = 5),

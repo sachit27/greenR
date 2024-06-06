@@ -23,9 +23,9 @@ server <- function(input, output, session) {
 
   # Green Index calculation and rendering
   green_index <- eventReactive(input$green_index_button, {
-    showNotification("Calculating Green Index...", type = "message")
+    showNotification("Calculating Green Index...", type = "message", duration = NULL, id = "green_index")
     index <- calculate_green_index(osm_data(), input$crs_code, input$D, input$buffer_distance)
-    showNotification("Green Index calculated.", type = "message")
+    showNotification("Green Index calculated.", type = "message", duration = 5, id = "green_index")
     return(index)
   })
 
@@ -149,6 +149,18 @@ server <- function(input, output, session) {
       result <- gvi_result()
       if (!is.null(result)) {
         OpenImageR::writeImage(result$green_pixels_image, file)
+      }
+    }
+  )
+
+  output$download_html <- downloadHandler(
+    filename = function() {
+      paste("green_index_map", Sys.Date(), ".html", sep = "")
+    },
+    content = function(file) {
+      index <- green_index()
+      if (!is.null(index)) {
+        save_as_leaflet(index, file)
       }
     }
   )
