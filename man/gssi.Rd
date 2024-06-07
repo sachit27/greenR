@@ -23,6 +23,7 @@ with area-based metrics to form the GSSI. The index is useful for comparing urba
 spaces across different cities.
 }
 \examples{
+\dontrun{
 d1 <- get_osm_data("New Delhi, India")
 dsf <- d1$green_areas$osm_polygons
 d2 <- get_osm_data("Basel, Switzerland")
@@ -31,4 +32,5 @@ d3 <- get_osm_data("Medellin, Colombia")
 msf <- d3$green_areas$osm_polygons
 cities_data <- list(dsf, bsf, msf)
 gssi_values <- gssi(cities_data)
+}
 }

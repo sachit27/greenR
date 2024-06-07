@@ -96,7 +96,7 @@ hexGreenSpace <- function(green_areas_data = NULL, tree_data = NULL, hex_size = 
   # Create Leaflet map
   map <- leaflet::leaflet() %>%
     leaflet::addTiles(group = "OSM") %>%
-    leaflet::addProviderTiles(providers$CartoDB.Positron, group = "Positron") %>%
+    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron") %>%
     leaflet::addPolygons(
       data = hex_grid,
       fillColor = ~leaflet::colorNumeric(color_palette, hex_grid$coverage_pct)(hex_grid$coverage_pct),
