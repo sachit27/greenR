@@ -38,7 +38,6 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
   # Define colors for clusters using a color palette
   pal <- leaflet::colorFactor(RColorBrewer::brewer.pal(ifelse(num_clusters <= 8, num_clusters, 8), "Dark2"), domain = green_areas$cluster)
 
-
   # Create a Leaflet map with base tiles
   map <- leaflet::leaflet(green_areas) %>%
     leaflet::addTiles(group = "OpenStreetMap") # Default OSM tiles
@@ -51,7 +50,7 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
       color = "#444444",
       weight = 1,
       smoothFactor = 0.5,
-      popup = ~paste("Cluster:", cluster, "<br>Area:", formatC(area, format = "f", big.mark = ",", digits = 0), "m²"),
+      popup = ~paste("Cluster:", cluster, "<br>Area:", formatC(area, format = "f", big.mark = ",", digits = 0), "m\u00B2"),
       group = "Clusters"
     )
 

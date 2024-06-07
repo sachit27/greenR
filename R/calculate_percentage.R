@@ -16,7 +16,7 @@
 calculate_percentage <- function(green_index_data) {
 
   # Remove geometry before processing
-  green_index_data <- as.data.frame(st_drop_geometry(green_index_data))
+  green_index_data <- as.data.frame(sf::st_drop_geometry(green_index_data))
 
   green_index_data <- green_index_data %>%
     dplyr::mutate(

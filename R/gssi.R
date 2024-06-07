@@ -13,6 +13,7 @@
 #' @importFrom sf st_as_sf st_transform st_area st_bbox
 #' @importFrom spatstat.geom as.ppp nndist owin
 #' @examples
+#' \dontrun{
 #' d1 <- get_osm_data("New Delhi, India")
 #' dsf <- d1$green_areas$osm_polygons
 #' d2 <- get_osm_data("Basel, Switzerland")
@@ -21,6 +22,7 @@
 #' msf <- d3$green_areas$osm_polygons
 #' cities_data <- list(dsf, bsf, msf)
 #' gssi_values <- gssi(cities_data)
+#' }
 #' @export
 gssi <- function(green_spaces_list, equal_area_crs = "ESRI:54009") {
   # Validate inputs

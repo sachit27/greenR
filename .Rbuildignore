@@ -1,2 +1,10 @@
-^greenindex\.Rproj$
+^greenR\.Rproj$
 ^\.Rproj\.user$
+^\.Rhistory$
+^\.RData$
+^\.DS_Store$
+^\.github$
+^.*\.tar\.gz$
+^.*\.zip$
+^README\.md$
+^CODE_OF_CONDUCT\.md$
