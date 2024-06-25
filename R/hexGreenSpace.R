@@ -1,3 +1,6 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("geometry", "intersection_area", "coverage_pct"))
+
 #' Visualize Green Space Coverage with Hexagonal Bins
 #'
 #' Creates a hexagonal binning map to visualize the percentage of green space coverage within a specified area.
@@ -15,8 +18,9 @@
 #' @importFrom htmlwidgets saveWidget
 #' @importFrom dplyr filter group_by summarise coalesce
 #' @importFrom units set_units
+#' @importFrom stats median sd
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   data <- get_osm_data("City of London, United Kingdom")
 #'   green_areas_data <- data$green_areas
 #'   tree_data <- data$trees
@@ -129,17 +133,17 @@ hexGreenSpace <- function(green_areas_data = NULL, tree_data = NULL, hex_size = 
     ggplot2::labs(title = "Percentage of Green Space Coverage per Hexagon", x = "Hexagon", y = "Coverage (%)") +
     ggplot2::annotate("text", x = 1, y = max(coverage_df$coverage_pct), label = sprintf("Mean: %.2f%%\nMedian: %.2f%%\nStd Dev: %.2f%%",
                                                                                         mean(coverage_df$coverage_pct),
-                                                                                        median(coverage_df$coverage_pct),
-                                                                                        sd(coverage_df$coverage_pct)),
+                                                                                        stats::median(coverage_df$coverage_pct),
+                                                                                        stats::sd(coverage_df$coverage_pct)),
                       hjust = 1.1, vjust = 1.1, size = 3, color = "blue")
 
   # Print summary statistics
-  cat("Average percentage of green space coverage per hexagon:", mean(coverage_df$coverage_pct), "%\n")
+  message("Average percentage of green space coverage per hexagon: ", mean(coverage_df$coverage_pct), "%")
 
   # Save map as HTML if save_path is provided
   if (!is.null(save_path)) {
     htmlwidgets::saveWidget(map, file = save_path)
-    cat("Map saved to:", save_path, "\n")
+    message("Map saved to: ", save_path)
   }
 
   return(list(map = map, violin = violin_plot))

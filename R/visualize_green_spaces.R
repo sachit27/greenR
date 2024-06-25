@@ -4,11 +4,8 @@
 #' Green spaces are labeled based on their tags and have different colors in the legend. Users can switch the green spaces layer on and off.
 #'
 #' @param green_areas_data List containing green areas data (obtained from get_osm_data function).
-#'
 #' @return A Leaflet map displaying green spaces with labels and a legend, with a layer control for toggling the green spaces layer.
-#'
-#' @import leaflet
-#'
+#' @importFrom leaflet addTiles addPolygons addLegend addLayersControl
 #' @examples
 #' \dontrun{
 #'   # Assuming you have already obtained green_areas_data using get_osm_data
@@ -22,13 +19,13 @@ visualize_green_spaces <- function(green_areas_data) {
   }
 
   # Create a Leaflet map
-  map <- leaflet() %>%
-    addTiles() # You can customize the basemap using other leaflet functions
+  map <- leaflet::leaflet() %>%
+    leaflet::addTiles() # You can customize the basemap using other leaflet functions
 
   # Add green areas polygons to the map as a separate layer
   if (!is.null(green_areas_data$osm_polygons)) {
     map <- map %>%
-      addPolygons(
+      leaflet::addPolygons(
         data = green_areas_data$osm_polygons,
         fillColor = "green",
         fillOpacity = 0.7,
@@ -40,7 +37,7 @@ visualize_green_spaces <- function(green_areas_data) {
 
   # Add a legend
   map <- map %>%
-    addLegend(
+    leaflet::addLegend(
       "bottomright",
       colors = "green", # Legend color
       labels = "Green Space", # Legend label
@@ -49,9 +46,9 @@ visualize_green_spaces <- function(green_areas_data) {
 
   # Add layer control to allow toggling the green spaces layer on and off
   map <- map %>%
-    addLayersControl(
+    leaflet::addLayersControl(
       overlayGroups = "Green Spaces", # Group name for the green spaces layer
-      options = layersControlOptions(collapsed = TRUE) # Collapsed layer control
+      options = leaflet::layersControlOptions(collapsed = TRUE) # Collapsed layer control
     )
 
   # Return the Leaflet map

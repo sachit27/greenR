@@ -1,3 +1,6 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("sd"))
+
 #' Green Space Similarity Index (GSSI)
 #'
 #' This function calculates the Green Space Similarity Index (GSSI) for a list of cities,
@@ -10,10 +13,11 @@
 #' @param equal_area_crs A character string representing an equal-area CRS for accurate area measurement.
 #'                         Default is "ESRI:54009".
 #' @return A numeric vector of normalized GSSI values for each city.
-#' @importFrom sf st_as_sf st_transform st_area st_bbox
+#' @importFrom sf st_as_sf st_transform st_area st_bbox st_coordinates
 #' @importFrom spatstat.geom as.ppp nndist owin
+#' @importFrom stats sd
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' d1 <- get_osm_data("New Delhi, India")
 #' dsf <- d1$green_areas$osm_polygons
 #' d2 <- get_osm_data("Basel, Switzerland")
@@ -45,7 +49,7 @@ gssi <- function(green_spaces_list, equal_area_crs = "ESRI:54009") {
 
     # Check for empty or single-element green areas
     if (nrow(green_areas) < 2) {
-      cat("Skipping city", i, "- not enough green areas (less than 2)\n")
+      message("Skipping city ", i, " - not enough green areas (less than 2)")
       ggssi_values[i] <- NA
       next
     }
@@ -75,7 +79,7 @@ gssi <- function(green_spaces_list, equal_area_crs = "ESRI:54009") {
   # Normalize GGSSI values
   max_ggssi <- max(ggssi_values, na.rm = TRUE)
   if (max_ggssi == 0 || is.infinite(max_ggssi)) {
-    cat("No valid GGSSI values calculated\n")
+    message("No valid GGSSI values calculated")
     return(NA)
   }
 

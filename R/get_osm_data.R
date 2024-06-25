@@ -9,13 +9,10 @@
 #' @param server_url Optional string representing an alternative Nominatim server URL.
 #' @param username Optional string for username if authentication is required for the server.
 #' @param password Optional string for password if authentication is required for the server.
-#'
 #' @return A list containing:
-#'   * highways: an sf object with the OSM data about highways in the specified location.
-#'   * green_areas: an sf object with the OSM data about green areas, such as parks, forests, gardens,
-#'     and nature reserves, in the specified location.
-#'   * trees: an sf object with the OSM data about trees in the specified location.
-#'
+#'   \item{highways}{An sf object with the OSM data about highways in the specified location.}
+#'   \item{green_areas}{An sf object with the OSM data about green areas, such as parks, forests, gardens, and nature reserves, in the specified location.}
+#'   \item{trees}{An sf object with the OSM data about trees in the specified location.}
 #' @importFrom magrittr %>%
 #' @importFrom httr GET content authenticate
 #' @importFrom osmdata opq add_osm_feature osmdata_sf
@@ -23,7 +20,7 @@
 #' @importFrom dplyr select as_tibble
 #' @export
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   osm_data <- get_osm_data("Lausanne, Switzerland")
 #' }
 get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org/search", username = NULL, password = NULL) {
@@ -33,11 +30,11 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
     missing_cols_df1 <- setdiff(names(df2), names(df1))
     missing_cols_df2 <- setdiff(names(df1), names(df2))
 
-    for(col in missing_cols_df1) {
+    for (col in missing_cols_df1) {
       df1[[col]] <- NA
     }
 
-    for(col in missing_cols_df2) {
+    for (col in missing_cols_df2) {
       df2[[col]] <- NA
     }
 
@@ -83,12 +80,12 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
   # Download landuse data
   green_areas_data_landuse <- query %>%
     osmdata::add_osm_feature(key = "landuse", value = c("forest", "vineyard", "plant_nursery", "orchard", "greenfield", "recreation_ground", "allotments",
-                                                        "meadow","village_green","flowerbed", "grass", "farmland")) %>%
+                                                        "meadow", "village_green", "flowerbed", "grass", "farmland")) %>%
     osmdata::osmdata_sf()
 
   # Download leisure data
   green_areas_data_leisure <- query %>%
-    osmdata::add_osm_feature(key = "leisure", value = c("garden", "dog_park","nature_reserve", "park")) %>%
+    osmdata::add_osm_feature(key = "leisure", value = c("garden", "dog_park", "nature_reserve", "park")) %>%
     osmdata::osmdata_sf()
 
   # Initialize an empty list to hold the combined data

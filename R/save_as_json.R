@@ -4,7 +4,7 @@
 #'
 #' @param green_index A data frame containing the calculated green index values for each edge.
 #' @param file_path The file path where the GeoJSON file will be saved.
-#' @return NULL
+#' @return No return value, called for side effects
 #' @importFrom sf st_write
 #' @examples
 #' \dontrun{

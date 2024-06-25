@@ -1,3 +1,6 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("landuse", "leisure"))
+
 #' Calculate and Visualize the Shortest Walking Path to Specified Type of Nearest Green Space with Estimated Walking Time
 #'
 #' Determines the nearest specified type of green space from a given location and calculates the
@@ -13,11 +16,11 @@
 #' @param osrm_server URL of the OSRM routing server with foot routing support, default is "https://router.project-osrm.org/".
 #' @return A Leaflet map object showing the route, start point, and nearest green space with popup annotations.
 #' @importFrom sf st_as_sf st_transform st_coordinates st_centroid st_sfc st_point st_crs st_distance
-#' @importFrom leaflet leaflet addTiles addPolylines addMarkers addPopups addLegend
+#' @importFrom leaflet leaflet addTiles addPolylines addMarkers addLegend makeAwesomeIcon
 #' @importFrom osrm osrmRoute
 #' @importFrom dplyr filter
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   data <- get_osm_data("Fulham, London, United Kingdom")
 #'   highway_data <- data$highways
 #'   green_areas_data <- data$green_areas
@@ -41,7 +44,7 @@ nearest_greenspace <- function(highway_data, green_areas_data, location_lat, loc
   # Filter green spaces if specific types are specified
   if (!is.null(green_space_types) && length(green_space_types) > 0) {
     green_areas_data$osm_polygons <- green_areas_data$osm_polygons %>%
-      filter(landuse %in% green_space_types | leisure %in% green_space_types)
+      dplyr::filter(landuse %in% green_space_types | leisure %in% green_space_types)
   }
 
   if (nrow(green_areas_data$osm_polygons) == 0) {
@@ -49,13 +52,13 @@ nearest_greenspace <- function(highway_data, green_areas_data, location_lat, loc
   }
 
   # Calculate centroids of green spaces
-  green_points <- st_centroid(green_areas_data$osm_polygons)
+  green_points <- sf::st_centroid(green_areas_data$osm_polygons)
 
   # Find the nearest green space
-  start_point <- st_sfc(st_point(c(location_lon, location_lat)), crs = st_crs(green_points))
-  distances <- st_distance(green_points, start_point)
+  start_point <- sf::st_sfc(sf::st_point(c(location_lon, location_lat)), crs = sf::st_crs(green_points))
+  distances <- sf::st_distance(green_points, start_point)
   nearest_green <- green_points[which.min(distances), ]
-  nearest_coords <- st_coordinates(nearest_green)
+  nearest_coords <- sf::st_coordinates(nearest_green)
 
   # Calculate the shortest route using OSRM with the walking profile
   route <- osrm::osrmRoute(src = c(location_lon, location_lat), dst = nearest_coords[1, c("X", "Y")],
@@ -72,7 +75,7 @@ nearest_greenspace <- function(highway_data, green_areas_data, location_lat, loc
   destination_info <- sprintf("Nearest Green Space: (%f, %f)\nName: %s\nDistance: %.2f meters\nWalking Time: ~%.2f minutes",
                               nearest_coords[1, "Y"], nearest_coords[1, "X"],
                               destination_name, distance_m, walking_time_minutes)
-  cat("Route Details:\n", start_info, "\n", destination_info, "\n")
+  message("Route Details:\n", start_info, "\n", destination_info, "\n")
 
   # Create Leaflet map
   map <- leaflet() %>%

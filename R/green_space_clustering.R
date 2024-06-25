@@ -11,9 +11,23 @@
 #' @importFrom stats kmeans
 #' @importFrom RColorBrewer brewer.pal
 #' @examples
-#' \dontrun{
-#'   # Assuming you have already obtained green_areas_data using get_osm_data or similar
-#'   map <- green_space_clustering(green_areas_data, num_clusters = 5)
+#' \donttest{
+#'   # Create example green_areas_data
+#'   library(sf)
+#'   green_areas <- st_sf(
+#'     id = 1:5,
+#'     geometry = st_sfc(
+#'       st_polygon(list(rbind(c(0, 0), c(0, 1), c(1, 1), c(1, 0), c(0, 0)))),
+#'       st_polygon(list(rbind(c(1, 1), c(1, 2), c(2, 2), c(2, 1), c(1, 1)))),
+#'       st_polygon(list(rbind(c(2, 2), c(2, 3), c(3, 3), c(3, 2), c(2, 2)))),
+#'       st_polygon(list(rbind(c(3, 3), c(3, 4), c(4, 4), c(4, 3), c(3, 3)))),
+#'       st_polygon(list(rbind(c(4, 4), c(4, 5), c(5, 5), c(5, 4), c(4, 4))))
+#'     ),
+#'     crs = 4326  # Assign a CRS (WGS 84)
+#'   )
+#'   green_areas_data <- list(osm_polygons = green_areas)
+#'   # Run the clustering function
+#'   map <- green_space_clustering(green_areas_data, num_clusters = 2)
 #'   map # to display the map
 #' }
 #' @export

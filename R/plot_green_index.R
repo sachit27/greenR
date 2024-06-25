@@ -1,3 +1,8 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("green_index", "coverage_pct", "geometry", "green_index_category",
+                         "green_index_green_area", "green_index_tree", "intersection_area",
+                         "landuse", "leisure", "median", "n", "osm_id", "sd"))
+
 #' Plot the green index
 #'
 #' This function plots the green index for the highway network with extensive customization options.
@@ -21,7 +26,10 @@
 #' @param interactive Logical, whether to return an interactive plot using leaflet. Default is FALSE.
 #' @param filename Character, filename to save the plot. Supported formats include HTML. Default is NULL (no file saved).
 #'
-#' @importFrom leaflet leaflet addProviderTiles addPolylines addLayersControl colorBin
+#' @return If `interactive = TRUE`, returns a Leaflet map object. If `interactive = FALSE`, returns a ggplot object.
+#' If a filename is provided, saves the plot to the specified file.
+#'
+#' @importFrom leaflet leaflet addProviderTiles addPolylines addLayersControl colorBin layersControlOptions
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
 #' @export

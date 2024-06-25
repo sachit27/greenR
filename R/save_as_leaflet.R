@@ -1,10 +1,18 @@
 #' Save the green index data as a Leaflet map in an HTML file
 #'
+#' This function saves the green index data as a Leaflet map in an HTML file.
+#'
 #' @param edges A data frame containing the calculated green index values for each edge.
 #' @param file_path The file path where the HTML file will be saved.
+#' @return No return value, called for side effects
 #' @importFrom leaflet addTiles addPolylines addLegend leaflet colorNumeric highlightOptions
 #' @importFrom sf st_as_sf st_transform
 #' @importFrom htmlwidgets saveWidget
+#' @examples
+#' \dontrun{
+#' # Assuming you have already obtained green index data
+#' save_as_leaflet(green_index, "green_index_map.html")
+#' }
 #' @export
 save_as_leaflet <- function(edges, file_path) {
   # Convert to an sf object and transform the data to the WGS84 CRS
