@@ -16,14 +16,14 @@ calculate_green_index(osm_data, crs_code, D = 100, buffer_distance = 120)
 \item{buffer_distance}{Buffer distance for spatial joins (default = 120).}
 }
 \value{
-Spatial data frame with calculated green index.
+A spatial data frame with calculated green index.
 }
 \description{
 This function calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB and Duckplyr.
 The green index is calculated based on the proximity of highways to green areas and trees.
 }
 \examples{
-\dontrun{
+\donttest{
   osm_data <- get_osm_data("Basel, Switzerland")
   green_index <- calculate_green_index(osm_data, 2056)
 }

@@ -1,7 +1,7 @@
 ui <- fluidPage(
   titlePanel(
     tags$div(
-      tags$img(src = "logo.png", height = 80, width = 80),
+      tags$img(src = "logo.jpg", height = 80, width = 80),
       "greenR: Green Index Analysis"
     )
   ),

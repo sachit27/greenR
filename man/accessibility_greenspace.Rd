@@ -42,5 +42,4 @@ latitude and longitude coordinates.
   green_area_data <- data$green_areas
   accessibility_greenspace(data, 47.56, 7.59)
 }
-
 }
