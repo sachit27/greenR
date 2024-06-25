@@ -1,9 +1,13 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("green_index", "green_index_category", "n"))
+
 #' Calculate the percentage of edges with their respective green index category
 #'
 #' This function calculates the percentage of edges within each green index category.
 #'
 #' @param green_index_data A data frame containing the calculated green index values for each edge.
 #' @return A data frame with the percentage of each green index category.
+#' @importFrom dplyr mutate group_by summarise n
 #' @examples
 #' \dontrun{
 #' # Generate a sample green_index data frame
@@ -14,6 +18,11 @@
 #' }
 #' @export
 calculate_percentage <- function(green_index_data) {
+
+  # Error Handling: Check if green_index_data is a data frame
+  if (!is.data.frame(green_index_data)) {
+    stop("Invalid input: green_index_data must be a data frame.")
+  }
 
   # Remove geometry before processing
   green_index_data <- as.data.frame(sf::st_drop_geometry(green_index_data))

@@ -1,3 +1,6 @@
+# Declare global variables to avoid R CMD check warnings
+utils::globalVariables(c("green_index", "green_index_green_area", "green_index_tree", ".", "osm_id", "geometry"))
+
 #' Calculate Green Index
 #'
 #' This function calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB and Duckplyr.
@@ -7,21 +10,18 @@
 #' @param crs_code Coordinate reference system code for transformations.
 #' @param D Distance decay parameter (default = 100).
 #' @param buffer_distance Buffer distance for spatial joins (default = 120).
-#'
-#' @return Spatial data frame with calculated green index.
-#'
+#' @return A spatial data frame with calculated green index.
 #' @importFrom sf st_transform st_union st_geometry st_as_text st_crs st_drop_geometry st_as_sf
 #' @importFrom DBI dbConnect dbExecute dbWriteTable dbGetQuery dbDisconnect
 #' @importFrom duckdb duckdb
-#' @importFrom data.table as.data.table
+#' @importFrom data.table as.data.table :=
 #' @importFrom dplyr %>% select
-#' @export
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   osm_data <- get_osm_data("Basel, Switzerland")
 #'   green_index <- calculate_green_index(osm_data, 2056)
 #' }
-
+#' @export
 calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance = 120) {
   # Start time
   start_time <- Sys.time()
@@ -117,6 +117,9 @@ calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance =
 
   edges_dt[, green_index := (green_index - min_green_index) / (max_green_index - min_green_index)]
 
+  # Set minimum green index value to 0.05 if it is 0
+  edges_dt[green_index == 0, green_index := 0.05]
+
   edges_dt <- edges_dt[, .(osm_id, geometry, green_index_green_area, green_index_tree, green_index)]
 
   edges <- sf::st_as_sf(edges_dt, wkt = "geometry", crs = crs_code)
@@ -129,7 +132,7 @@ calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance =
 
   # Calculate and print processing time
   processing_time <- end_time - start_time
-  print(paste("Processing time:", processing_time))
+  message(paste("Processing time:", processing_time))
 
   return(edges)
 }
@@ -148,9 +151,9 @@ rename_duplicate_columns <- function(df) {
 check_duplicate_columns <- function(df) {
   dup_cols <- colnames(df)[duplicated(tolower(colnames(df)))]
   if (length(dup_cols) > 0) {
-    cat("Duplicate columns found:", paste(dup_cols, collapse = ", "), "\n")
+    message("Duplicate columns found:", paste(dup_cols, collapse = ", "))
   } else {
-    cat("No duplicate columns found.\n")
+    message("No duplicate columns found.")
   }
   return(dup_cols)
 }

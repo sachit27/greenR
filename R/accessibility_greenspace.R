@@ -13,19 +13,16 @@
 #' @param isochrone_color Color palette for the isochrone lines. Default is "viridis".
 #'
 #' @return A leaflet map object.
-#'
 #' @importFrom sf st_as_sf st_transform st_make_valid st_coordinates
 #' @importFrom leaflet leaflet addProviderTiles addPolygons addCircles addLegend addLayersControl
 #' @importFrom osrm osrmIsochrone
 #' @importFrom tibble tibble
 #' @importFrom viridisLite viridis
-#'
 #' @examples
 #' \dontrun{
 #'   green_area_data <- data$green_areas
 #'   accessibility_greenspace(data, 47.56, 7.59)
 #' }
-#'
 #' @export
 accessibility_greenspace <- function(green_area_data, location_lat, location_lon,
                                      max_walk_time = 15, green_color = "green",

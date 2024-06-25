@@ -5,6 +5,8 @@
 #'
 #' @param image_path The path of the image file to be processed.
 #' @return A list containing the Green View Index (GVI), the segmented image, and the green pixels image.
+#' @importFrom OpenImageR readImage
+#' @importFrom SuperpixelImageSegmentation Image_Segmentation
 #' @examples
 #' \dontrun{
 #' # Example usage with an image located at the specified path
@@ -57,7 +59,7 @@ calculate_and_visualize_GVI <- function(image_path) {
   }
 
   GVI <- green_pixels / total_pixels
-  print(paste("Green View Index: ", GVI))
+  message(paste("Green View Index: ", GVI))
 
   # Visualize Green Pixels
   visualized_image <- array(0, dim = c(dim(segmented_image)[1], dim(segmented_image)[2], 3))

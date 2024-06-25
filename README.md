@@ -1,7 +1,7 @@
 <p float="left">
-  <img src="/vignettes/logo.png" width="230" />
-  <img src="/vignettes/zh_network.png" width="250" /> 
-  <img src="/vignettes/zh_gi.png" width="300" />
+  <img src="/vignettes/logo.jpg" width="230" />
+  <img src="/vignettes/zh_network.jpg" width="250" /> 
+  <img src="/vignettes/zh_gi.jpg" width="300" />
 </p>
 
 # greenR: An R Package for Quantifying Urban Greenness
@@ -66,7 +66,7 @@ visualize_green_spaces(green_areas_data)
 ```R
 green_space_clustering(green_areas_data, num_clusters = 3)
 ```
-![Green_Areas and Clusters](/vignettes/vis.png)
+![Green_Areas and Clusters](/vignettes/vis.jpg)
 
 ## Accessibility analysis
 
@@ -75,7 +75,7 @@ The 'accessibility_greenspace' function creates an interactive leaflet map displ
 ```R
 accessibility_greenspace(green_areas_data, 47.56427527336772, 7.595820936462059)
 ```
-![Isochrone](/vignettes/isochrone.png)
+![Isochrone](/vignettes/isochrone.jpg)
 
 The 'nearest_greenspace' function calculates and visualizes the shortest walking route to the nearest green space of a specified type from a given location. You can also select the type of green space (c("park", "forest")). By default it looks at all the green space.
 
@@ -108,7 +108,7 @@ hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300, color_pale
 print(hex_map$map)  # Display the map
 print(hex_map$violin)  # Display the violin plot
 ```
-![Hexbinplot](/vignettes/hexv.png)
+![Hexbinplot](/vignettes/hexv.jpg)
 
 ## Calculate the green index for the specified city
 
@@ -155,7 +155,7 @@ library(htmlwidgets)
 saveWidget(map, file = "my_plot.html")
 
 ```
-![Map](/vignettes/darkmode.png)
+![Map](/vignettes/darkmode.jpg)
 
 ## Calculate the percentage of edges with a certain green index
 
@@ -173,11 +173,11 @@ These functions allow the user to download the green index values as a GeoJson f
 download_file <- save_json(green_index, "File Path") #file path has to be specified. For example "/Users/.../map.geojson"
 map <- save_as_leaflet(green_index, "File Path")
 ```
-![Map](/vignettes/leaflet.png)
+![Map](/vignettes/leaflet.jpg)
 
 ## Shiny Application
 
-![Map](/vignettes/shiny.png)
+![Map](/vignettes/shiny.jpg)
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
 
@@ -203,7 +203,7 @@ OpenImageR::writeImage(result$segmented_image, "/path/to/save/segmented_image.pn
 # Save the green pixels image
 OpenImageR::writeImage(result$green_pixels_image, "/path/to/save/green_pixels_image.png")
 ```
-![GVI](/vignettes/gvi.png)
+![GVI](/vignettes/gvi.jpg)
 
 ## Green Space Similarity Index (GSSI)
 
