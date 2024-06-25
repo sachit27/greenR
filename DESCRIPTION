@@ -4,8 +4,8 @@ Version: 0.0.1.1
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
-Description: This package enables the quantification, analysis, and visualization of urban greenness within city networks. It leverages data from OpenStreetMap (www.openstreetmap.org) and is implemented as both an R package and a Shiny web application for user-friendly interaction.
-License: GPL-3
+Description: Quantification, analysis, and visualization of urban greenness within city networks using data from 'OpenStreetMap' <https://www.openstreetmap.org>.
+License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
@@ -18,7 +18,6 @@ Imports:
     osmdata,
     sf,
     htmltools,
-    htmlwidgets,
     leaflet,
     shiny,
     tibble,
@@ -31,10 +30,12 @@ Imports:
     duckdb,
     DBI,
     data.table,
-    viridisLite,
     RColorBrewer,
-    knitr,
-    rmarkdown
-Additional_repositories: 
-    CODE_OF_CONDUCT.md
-VignetteBuilder: knitr
+    htmlwidgets,
+    viridisLite,
+    rstudioapi,
+    jsonlite
+Suggests:
+    knitr
+VignetteBuilder:
+    knitr
