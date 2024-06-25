@@ -2,14 +2,14 @@
 % Please edit documentation in R/run_app.R
 \name{run_app}
 \alias{run_app}
-\title{Run the Shiny App for greenR}
+\title{Run Shiny App}
 \usage{
 run_app()
 }
-\description{
-Run Shiny App
+\value{
+No return value, called for side effects
 }
-\details{
+\description{
 This function runs the included Shiny app. The app provides an interactive
 interface to use the functions in this package. You can download OSM data,
 calculate green indices, plot green index, and save green index data as a

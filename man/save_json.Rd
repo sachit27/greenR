@@ -11,6 +11,9 @@ save_json(green_index, file_path)
 
 \item{file_path}{The file path where the GeoJSON file will be saved.}
 }
+\value{
+No return value, called for side effects
+}
 \description{
 This function saves the green index data for all the edges as a GeoJSON file.
 }

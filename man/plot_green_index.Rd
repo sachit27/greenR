@@ -55,6 +55,10 @@ Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
 
 \item{filename}{Character, filename to save the plot. Supported formats include HTML. Default is NULL (no file saved).}
 }
+\value{
+If \code{interactive = TRUE}, returns a Leaflet map object. If \code{interactive = FALSE}, returns a ggplot object.
+If a filename is provided, saves the plot to the specified file.
+}
 \description{
 This function plots the green index for the highway network with extensive customization options.
 Users can set various parameters like text size, color palette, resolution, base map, line width, line type, and more.

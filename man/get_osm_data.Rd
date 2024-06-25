@@ -22,12 +22,9 @@ get_osm_data(
 }
 \value{
 A list containing:
-\itemize{
-\item highways: an sf object with the OSM data about highways in the specified location.
-\item green_areas: an sf object with the OSM data about green areas, such as parks, forests, gardens,
-and nature reserves, in the specified location.
-\item trees: an sf object with the OSM data about trees in the specified location.
-}
+\item{highways}{An sf object with the OSM data about highways in the specified location.}
+\item{green_areas}{An sf object with the OSM data about green areas, such as parks, forests, gardens, and nature reserves, in the specified location.}
+\item{trees}{An sf object with the OSM data about trees in the specified location.}
 }
 \description{
 This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
@@ -36,7 +33,7 @@ It requires an internet connection. If using RStudio Cloud, or if you need to us
 Nominatim server, you can specify an alternative server URL and credentials (username and password).
 }
 \examples{
-\dontrun{
+\donttest{
   osm_data <- get_osm_data("Lausanne, Switzerland")
 }
 }

@@ -11,6 +11,15 @@ save_as_leaflet(edges, file_path)
 
 \item{file_path}{The file path where the HTML file will be saved.}
 }
+\value{
+No return value, called for side effects
+}
 \description{
-Save the green index data as a Leaflet map in an HTML file
+This function saves the green index data as a Leaflet map in an HTML file.
+}
+\examples{
+\dontrun{
+# Assuming you have already obtained green index data
+save_as_leaflet(green_index, "green_index_map.html")
+}
 }
