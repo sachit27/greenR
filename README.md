@@ -70,7 +70,17 @@ green_space_clustering(green_areas_data, num_clusters = 3)
 
 ## Accessibility analysis
 
-The 'accessibility_greenspace' function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
+Mapbox Version (Dynamic): The 'accessibility_mapbox' function creates an accessibility map using Mapbox GL JS. This map shows green areas and allows users to generate isochrones for walking times. The resulting HTML file includes interactive features for changing the walking time and moving the location marker dynamically.
+```R
+mapbox_token <- "your_mapbox_access_token_here"
+accessibility_mapbox(green_areas_data, mapbox_token)
+```
+<div style="display: flex; align-items: center;">
+  <img src="/vignettes/access_mapbox.gif" alt="Accessibility Mapbox Demo" style="width: 100%; height: auto;">  
+</div>
+
+
+Leaflet Version: The 'accessibility_greenspace' function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
 
 ```R
 accessibility_greenspace(green_areas_data, 47.56427527336772, 7.595820936462059)
@@ -120,7 +130,7 @@ green_index <- calculate_green_index(data, 4326, 100)
 
 ## Create the green index plot
 
-This function visualizes the green index on a map, with options for both static and interactive display. Interactive maps are rendered using Leaflet, allowing users to zoom, pan, and interact with the map to explore the green index in more detail.
+This function visualizes the green index on a map, with options for both static and interactive display. Interactive maps are rendered using Leaflet and Mapbox, allowing users to zoom, pan, and interact with the map to explore the green index in more detail. 
 
 ### Features
 - **Dynamic Mapping**: Create interactive, dynamic maps for a more engaging and detailed visualization.
@@ -135,7 +145,17 @@ map <- plot_green_index(green_index)
 map <- plot_green_index(green_index, colors = c("#FF0000", "#00FF00"), line_width = 1, line_type = "dashed")
 
 ```
-### Customize Interactive Base Map
+### 3D linestring map using Mapbox GL JS
+
+This map is designed to visualize linear features such as roads, trails, or any other types of linestring data. This can be particularly useful for visualizing connectivity, transportation networks, or other linear spatial patterns.The function supports interactive controls for adjusting the line width and toggling building visibility on the map. It accepts linestring data and automatically processes it to create a visually appealing 3D map.
+
+```R
+mapbox_token <- "your_mapbox_access_token_here"
+create_linestring_3D(green_index, "green_index", mapbox_token)
+```
+![3D Linestring Map](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/linestring.gif)
+
+### Customize Interactive Base Map (Leaflet version)
 In interactive mode, you can change the base map to various themes.
 
 ```R
@@ -156,6 +176,23 @@ saveWidget(map, file = "my_plot.html")
 
 ```
 ![Map](/vignettes/darkmode.jpg)
+
+### 3D Hex map (Mapbox version)
+
+The 'create_hexmap_3D' function generates a 3D hexagon map using H3 hexagons and Mapbox GL JS. This map can visualize various types of geographical data, such as points, linestrings, polygons, and multipolygons. It is particularly useful for visualizing density or green indices over an area. It automatically processes these geometries, converting them to points for visualization. Users can dynamically change the radius of the hexagons and their heights to better represent the data. The resulting map includes controls for adjusting hexagon height and H3 resolution, and selecting different Mapbox styles.
+
+```R
+mapbox_token <- "your_mapbox_access_token_here"
+
+create_hexmap_3D(
+  data = green_index,
+  value_col = "green_index",
+  mapbox_token = mapbox_token,
+  output_file = "map.html",
+  color_palette = "interpolateViridis"
+)
+```
+![3D Hex Map](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/hex3d.gif)
 
 ## Calculate the percentage of edges with a certain green index
 
