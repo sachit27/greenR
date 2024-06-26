@@ -75,10 +75,7 @@ Mapbox Version (Dynamic): The 'accessibility_mapbox' function creates an accessi
 mapbox_token <- "your_mapbox_access_token_here"
 accessibility_mapbox(green_areas_data, mapbox_token)
 ```
-<div style="display: flex; align-items: center;">
-  <img src="/vignettes/access_mapbox.gif" alt="Accessibility Mapbox Demo" style="width: 100%; height: auto;">  
-</div>
-
+![Access Mapbox](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/access_mapbox.gif)
 
 Leaflet Version: The 'accessibility_greenspace' function creates an interactive leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the 'max_walk_time' parameter.  
 
