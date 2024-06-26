@@ -2,7 +2,7 @@
 % Please edit documentation in R/accessibility_mapbox.R
 \name{accessibility_mapbox}
 \alias{accessibility_mapbox}
-\title{Create a 3D Accessibility Map Using Mapbox GL JS}
+\title{Create a dynamic Accessibility Map Using Mapbox GL JS}
 \usage{
 accessibility_mapbox(
   green_area_data,
@@ -26,8 +26,11 @@ accessibility_mapbox(
 
 \item{initial_bearing}{Numeric, the initial bearing of the map. Default is -17.6.}
 }
+\value{
+NULL. The function creates an HTML file and opens it in the viewer or browser if run interactively.
+}
 \description{
-This function creates a 3D accessibility map using Mapbox GL JS. The map shows green areas and allows users to generate isochrones for walking times.
+This function creates a dynamic accessibility map using Mapbox GL JS. The map shows green areas and allows users to generate isochrones for walking times.
 }
 \examples{
 if (interactive()) {

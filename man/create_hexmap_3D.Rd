@@ -38,6 +38,9 @@ create_hexmap_3D(
 
 \item{h3_resolution}{Numeric, the H3 resolution for hexagons. Default is 9.}
 }
+\value{
+NULL. The function creates an HTML file and opens it in the viewer or browser if run interactively.
+}
 \description{
 This function creates a 3D hexagon map using H3 and Mapbox GL JS. The input data can be points, linestrings, polygons, or multipolygons.
 }

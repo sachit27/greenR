@@ -45,7 +45,6 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
   area_data <- data.frame(area = green_areas$area)
 
   # Run kmeans with the number of clusters specified by the user
-  set.seed(123) # for reproducibility
   kmeans_result <- stats::kmeans(area_data, centers = num_clusters, nstart = 25)
   green_areas$cluster <- kmeans_result$cluster
 

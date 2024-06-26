@@ -1,9 +1,9 @@
 # Declare global variables to avoid R CMD check warnings
 utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navigator"))
 
-#' Create a 3D Accessibility Map Using Mapbox GL JS
+#' Create a dynamic Accessibility Map Using Mapbox GL JS
 #'
-#' This function creates a 3D accessibility map using Mapbox GL JS. The map shows green areas and allows users to generate isochrones for walking times.
+#' This function creates a dynamic accessibility map using Mapbox GL JS. The map shows green areas and allows users to generate isochrones for walking times.
 #'
 #' @param green_area_data A list containing green area data.
 #' @param mapbox_token Character, your Mapbox access token.
@@ -11,11 +11,10 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #' @param initial_zoom Numeric, the initial zoom level of the map. Default is 15.
 #' @param initial_pitch Numeric, the initial pitch of the map. Default is 45.
 #' @param initial_bearing Numeric, the initial bearing of the map. Default is -17.6.
-#' @return NULL
+#' @return NULL. The function creates an HTML file and opens it in the viewer or browser if run interactively.
 #' @importFrom sf st_write st_bbox
 #' @importFrom utils browseURL
 #' @importFrom rstudioapi viewer isAvailable
-#' @export
 #' @examples
 #' if (interactive()) {
 #'   data <- get_osm_data("Basel, Switzerland")
@@ -23,6 +22,7 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #'   mapbox_token <- "your_mapbox_access_token_here"
 #'   accessibility_mapbox(green_areas_data, mapbox_token)
 #' }
+#' @export
 accessibility_mapbox <- function(green_area_data, mapbox_token, output_file = "accessibility_map.html",
                                  initial_zoom = 15, initial_pitch = 45, initial_bearing = -17.6) {
 

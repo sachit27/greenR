@@ -15,7 +15,7 @@ utils::globalVariables(c("lon", "lat", "value"))
 #' @param map_center Numeric vector of length 2, the center of the map. Default is NULL.
 #' @param map_zoom Numeric, the zoom level of the map. Default is 11.
 #' @param h3_resolution Numeric, the H3 resolution for hexagons. Default is 9.
-#' @return NULL
+#' @return NULL. The function creates an HTML file and opens it in the viewer or browser if run interactively.
 #' @importFrom jsonlite toJSON
 #' @importFrom utils browseURL
 #' @importFrom dplyr select rename mutate
