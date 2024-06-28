@@ -28,8 +28,20 @@ calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance =
 
   # Establish DuckDB connection
   con <- DBI::dbConnect(duckdb::duckdb())
-  DBI::dbExecute(con, "INSTALL spatial;")
-  DBI::dbExecute(con, "LOAD spatial;")
+
+  # Check if spatial extension is installed
+  spatial_installed <- try(DBI::dbExecute(con, "INSTALL spatial;"), silent = TRUE)
+  if (inherits(spatial_installed, "try-error")) {
+    DBI::dbDisconnect(con, shutdown = TRUE)
+    stop("Failed to install DuckDB spatial extension.")
+  }
+
+  # Load spatial extension
+  spatial_loaded <- try(DBI::dbExecute(con, "LOAD spatial;"), silent = TRUE)
+  if (inherits(spatial_loaded, "try-error")) {
+    DBI::dbDisconnect(con, shutdown = TRUE)
+    stop("Failed to load DuckDB spatial extension.")
+  }
 
   # Extract and transform data
   highways_data <- osm_data$highways
