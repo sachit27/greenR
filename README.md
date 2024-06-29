@@ -17,11 +17,12 @@ For more detailed information about the motivation, methodology, and validation,
 
 ## Installation
 
-The functionality in this repository is implemented in the R package greenR. This package is available on CRAN and can be obtained via GitHub by running the command below in R.
+The functionality in this repository is implemented in the R package greenR. This package is available on CRAN. 
 ```r
 # Install greenR from CRAN
 install.packages("greenR")
 ```
+It can also be obtained via GitHub by running the command below in R.
 
 ```r
 # install.packages("remotes") # Uncomment if you do not have the 'remotes' package installed
