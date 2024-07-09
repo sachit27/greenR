@@ -1,3 +1,5 @@
+[![CRAN Version](https://www.r-pkg.org/badges/version/greenR)](https://cran.r-project.org/package=greenR)
+
 <p float="left">
   <img src="/vignettes/logo.jpg" width="230" />
   <img src="/vignettes/zh_network.jpg" width="250" /> 
