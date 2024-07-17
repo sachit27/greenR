@@ -19,7 +19,7 @@ For more detailed information about the motivation, methodology, and validation,
 
 ## Installation
 
-```
+
 It can be obtained via GitHub by running the command below in R.
 
 ```r
