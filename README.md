@@ -32,6 +32,12 @@ Or you can also use devtools to install the package.
 library(devtools)
 devtools::install_github("sachit27/greenR", dependencies = TRUE)
 ```
+If you're updating from a previous version and encounter any issues, try clearing your package cache:
+```r
+remove.packages("greenR")
+.rs.restartR()
+devtools::install_github("sachit27/greenR", dependencies = TRUE, force = TRUE)
+```
 
 NOTE: If you encounter any issues with the installation of the "osmdata" R package as a dependency, you may bypass CRAN and install it directly from the [Github Repository](https://github.com/ropensci/osmdata). This alternative installation method can be useful if the standard CRAN installation is not working as expected. Here is how you can install it.
 
