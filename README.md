@@ -46,9 +46,12 @@ library(greenR)
 
 ```
 
-## Specify the city or neighborhood and download the data
+## Specify the location and download the data
 
 The first step is to acquire data. This provides a systematic approach to collecting the requisite geospatial data from OSM, thereby serving as the foundation for all subsequent analyses. The users can simply specify any city or neighborhood (that has data available in OSM database). This function looks in the database and finds any city and downloads OSM data for the specified spatial area with regard to three key environmental features: highways, green areas, and trees. Here green areas include all the areas with the following tags: "forest", "vineyard", "plant_nursery", "orchard", "greenfield", "recreation_ground", "allotments", "meadow","village_green","flowerbed", "grass", "farmland", "garden", "dog_park","nature_reserve", and "park".
+
+### Option 1: City or neighborhood name
+
 
 ```R
 data <- get_osm_data("City of London, United Kingdom")
@@ -57,6 +60,18 @@ Or
 ```R
 data <- get_osm_data("Fulham, London, United Kingdom")
 ```
+
+### Option 2: Bounding box coordinates
+
+For more precise control over the area of interest, users can provide a bounding box using coordinates. This is particularly useful when you need to define a specific area around a point of interest.
+
+```R
+# Define bounding box: (left, bottom, right, top)
+bbox <- c(-0.1, 51.5, 0.1, 51.7)  # Example bounding box for central London
+
+data <- get_osm_data(bbox)
+```
+
 
 ## Visualise green spaces and clustering
 
@@ -84,6 +99,17 @@ Leaflet Version: The 'accessibility_greenspace' function creates an interactive 
 
 ```R
 accessibility_greenspace(green_areas_data, 47.56427527336772, 7.595820936462059)
+```
+
+In addition to creating an interactive map, the 'accessibility_greenspace' function can also export the data in a format compatible with GIS software.
+
+```R
+result <- accessibility_greenspace(
+  green_areas_data, 
+  47.56427527336772, 
+  7.595820936462059,
+  output_file = "green_space_accessibility.gpkg"
+)
 ```
 ![Isochrone](/vignettes/isochrone.jpg)
 
