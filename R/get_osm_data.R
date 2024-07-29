@@ -2,8 +2,6 @@
 #'
 #' This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
 #' The OSM data includes information about highways, green areas, and trees in the specified location.
-#' It requires an internet connection. If using RStudio Cloud, or if you need to use a private
-#' Nominatim server, you can specify an alternative server URL and credentials (username and password).
 #'
 #' @param bbox Either a string representing the location (e.g., "Lausanne, Switzerland") or
 #'             a numeric vector of length 4 representing the bounding box coordinates
@@ -13,16 +11,15 @@
 #' @param password Optional string for password if authentication is required for the server.
 #' @return A list containing:
 #'   \item{highways}{An sf object with the OSM data about highways in the specified location.}
-#'   \item{green_areas}{An sf object with the OSM data about green areas, such as parks, forests, gardens, and nature reserves, in the specified location.}
+#'   \item{green_areas}{An sf object with the OSM data about green areas in the specified location.}
 #'   \item{trees}{An sf object with the OSM data about trees in the specified location.}
-#' @importFrom magrittr %>%
+#' @import magrittr
 #' @importFrom httr GET content authenticate
 #' @importFrom osmdata opq add_osm_feature osmdata_sf
-#' @importFrom sf st_transform st_union
-#' @importFrom dplyr select as_tibble
+#' @importFrom sf st_as_sf
 #' @export
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'   # Using a location name
 #'   osm_data <- get_osm_data("Lausanne, Switzerland")
 #'
@@ -57,7 +54,8 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
   # Check if bbox is a vector of coordinates or a location name
   if (is.numeric(bbox) && length(bbox) == 4) {
     # If bbox is a vector of coordinates, use it directly
-    bbox_query <- c(left = bbox[1], bottom = bbox[2], right = bbox[3], top = bbox[4])
+    bbox_query <- bbox
+    names(bbox_query) <- c("left", "bottom", "right", "top")
   } else if (is.character(bbox) && length(bbox) == 1) {
     # If bbox is a location name, query Nominatim for the bounding box
     response <- httr::GET(
@@ -72,8 +70,7 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
 
     # Check if the request was successful
     if (response$status_code != 200) {
-      stop(paste("Failed to retrieve bounding box. Status code:", response$status_code,
-                 "If using RStudio Cloud you may need to specify an alternative server URL and credentials."))
+      stop(paste("Failed to retrieve bounding box. Status code:", response$status_code))
     }
 
     content <- httr::content(response, "parsed")
