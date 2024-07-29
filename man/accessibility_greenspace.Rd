@@ -2,7 +2,7 @@
 % Please edit documentation in R/accessibility_greenspace.R
 \name{accessibility_greenspace}
 \alias{accessibility_greenspace}
-\title{Generate Accessibility Map for Green Spaces}
+\title{Generate Accessibility Map for Green Spaces and Export Data}
 \usage{
 accessibility_greenspace(
   green_area_data,
@@ -11,7 +11,8 @@ accessibility_greenspace(
   max_walk_time = 15,
   green_color = "green",
   location_color = "blue",
-  isochrone_color = "viridis"
+  isochrone_color = "viridis",
+  output_file = NULL
 )
 }
 \arguments{
@@ -28,18 +29,34 @@ accessibility_greenspace(
 \item{location_color}{Color for the specified location on the map. Default is "blue".}
 
 \item{isochrone_color}{Color palette for the isochrone lines. Default is "viridis".}
+
+\item{output_file}{Path and filename for the output geopackage. If NULL (default), no file is exported.}
 }
 \value{
-A leaflet map object.
+A list containing a leaflet map object and the spatial data (sf objects).
 }
 \description{
 This function generates a leaflet map that shows green spaces accessible within
-a specified walking time from a given location. The location is specified by its
-latitude and longitude coordinates.
+a specified walking time from a given location. It also exports the spatial data
+as a geopackage file for use in GIS software like QGIS.
 }
 \examples{
 \dontrun{
-  green_area_data <- data$green_areas
-  accessibility_greenspace(data, 47.56, 7.59)
+  # First, get OSM data (this requires internet connection)
+  osm_data <- get_osm_data("Lausanne, Switzerland")
+
+  # Now use the green areas data in the accessibility function
+  result <- accessibility_greenspace(
+    green_area_data = osm_data$green_areas,
+    location_lat = 46.5196,
+    location_lon = 6.6322,
+    output_file = tempfile(fileext = ".gpkg")
+  )
+
+  # View the leaflet map
+  result$map
+
+  # Check the structure of the returned data
+  str(result, max.level = 1)
 }
 }

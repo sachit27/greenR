@@ -5,7 +5,9 @@
 #' It requires an internet connection. If using RStudio Cloud, or if you need to use a private
 #' Nominatim server, you can specify an alternative server URL and credentials (username and password).
 #'
-#' @param bbox A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").
+#' @param bbox Either a string representing the location (e.g., "Lausanne, Switzerland") or
+#'             a numeric vector of length 4 representing the bounding box coordinates
+#'             in the order: c(left, bottom, right, top).
 #' @param server_url Optional string representing an alternative Nominatim server URL.
 #' @param username Optional string for username if authentication is required for the server.
 #' @param password Optional string for password if authentication is required for the server.
@@ -21,7 +23,12 @@
 #' @export
 #' @examples
 #' \donttest{
+#'   # Using a location name
 #'   osm_data <- get_osm_data("Lausanne, Switzerland")
+#'
+#'   # Using coordinates for a bounding box
+#'   bbox_coords <- c(6.6, 46.5, 6.7, 46.6)  # Example coordinates near Lausanne
+#'   osm_data <- get_osm_data(bbox_coords)
 #' }
 get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org/search", username = NULL, password = NULL) {
 
@@ -47,32 +54,38 @@ get_osm_data <- function(bbox, server_url = "https://nominatim.openstreetmap.org
   # Prepare for authentication if username and password are provided
   auth <- if (!is.null(username) && !is.null(password)) httr::authenticate(username, password) else NULL
 
-  # Query Nominatim for the bounding box
-  response <- httr::GET(
-    server_url,
-    query = list(
-      q = bbox,
-      format = "json",
-      featuretype = "settlement"
-    ),
-    auth
-  )
+  # Check if bbox is a vector of coordinates or a location name
+  if (is.numeric(bbox) && length(bbox) == 4) {
+    # If bbox is a vector of coordinates, use it directly
+    bbox_query <- c(left = bbox[1], bottom = bbox[2], right = bbox[3], top = bbox[4])
+  } else if (is.character(bbox) && length(bbox) == 1) {
+    # If bbox is a location name, query Nominatim for the bounding box
+    response <- httr::GET(
+      server_url,
+      query = list(
+        q = bbox,
+        format = "json",
+        featuretype = "settlement"
+      ),
+      auth
+    )
 
-  # Check if the request was successful
-  if (response$status_code != 200) {
-    stop(paste("Failed to retrieve bounding box. Status code:", response$status_code,
-               "If using RStudio Cloud you may need to specify an alternative server URL and credentials."))
+    # Check if the request was successful
+    if (response$status_code != 200) {
+      stop(paste("Failed to retrieve bounding box. Status code:", response$status_code,
+                 "If using RStudio Cloud you may need to specify an alternative server URL and credentials."))
+    }
+
+    content <- httr::content(response, "parsed")
+    if (length(content) == 0 || is.null(content[[1]]$boundingbox)) {
+      stop("No bounding box information found for the provided location.")
+    }
+
+    bbox <- as.numeric(content[[1]]$boundingbox)
+    bbox_query <- c(left = bbox[3], bottom = bbox[1], right = bbox[4], top = bbox[2])
+  } else {
+    stop("Invalid bbox input. Please provide either a location name as a string or a numeric vector of coordinates (left, bottom, right, top).")
   }
-
-  content <- httr::content(response, "parsed")
-  if (length(content) == 0 || is.null(content[[1]]$boundingbox)) {
-    stop("No bounding box information found for the provided location.")
-  }
-
-  bbox <- as.numeric(content[[1]]$boundingbox)
-
-  # Define the bounding box using retrieved values
-  bbox_query <- c(left = bbox[3], bottom = bbox[1], right = bbox[4], top = bbox[2])
 
   # Define a query to get the data from OpenStreetMap
   query <- osmdata::opq(bbox = bbox_query)

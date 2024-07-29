@@ -1,8 +1,8 @@
-#' Generate Accessibility Map for Green Spaces
+#' Generate Accessibility Map for Green Spaces and Export Data
 #'
 #' This function generates a leaflet map that shows green spaces accessible within
-#' a specified walking time from a given location. The location is specified by its
-#' latitude and longitude coordinates.
+#' a specified walking time from a given location. It also exports the spatial data
+#' as a geopackage file for use in GIS software like QGIS.
 #'
 #' @param green_area_data A list containing green area data, usually obtained from the \code{get_osm_data} function.
 #' @param location_lat Numeric latitude of the specified location.
@@ -11,22 +11,38 @@
 #' @param green_color Color for the green areas on the map. Default is "green".
 #' @param location_color Color for the specified location on the map. Default is "blue".
 #' @param isochrone_color Color palette for the isochrone lines. Default is "viridis".
+#' @param output_file Path and filename for the output geopackage. If NULL (default), no file is exported.
 #'
-#' @return A leaflet map object.
-#' @importFrom sf st_as_sf st_transform st_make_valid st_coordinates
+#' @return A list containing a leaflet map object and the spatial data (sf objects).
+#' @importFrom sf st_as_sf st_transform st_make_valid st_coordinates st_write
 #' @importFrom leaflet leaflet addProviderTiles addPolygons addCircles addLegend addLayersControl
 #' @importFrom osrm osrmIsochrone
 #' @importFrom tibble tibble
 #' @importFrom viridisLite viridis
 #' @examples
 #' \dontrun{
-#'   green_area_data <- data$green_areas
-#'   accessibility_greenspace(data, 47.56, 7.59)
+#'   # First, get OSM data (this requires internet connection)
+#'   osm_data <- get_osm_data("Lausanne, Switzerland")
+#'
+#'   # Now use the green areas data in the accessibility function
+#'   result <- accessibility_greenspace(
+#'     green_area_data = osm_data$green_areas,
+#'     location_lat = 46.5196,
+#'     location_lon = 6.6322,
+#'     output_file = tempfile(fileext = ".gpkg")
+#'   )
+#'
+#'   # View the leaflet map
+#'   result$map
+#'
+#'   # Check the structure of the returned data
+#'   str(result, max.level = 1)
 #' }
 #' @export
 accessibility_greenspace <- function(green_area_data, location_lat, location_lon,
                                      max_walk_time = 15, green_color = "green",
-                                     location_color = "blue", isochrone_color = "viridis") {
+                                     location_color = "blue", isochrone_color = "viridis",
+                                     output_file = NULL) {
 
   # Error Handling: Check if latitude and longitude are numeric and within valid range
   if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
@@ -77,8 +93,8 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
       fillColor = ~leaflet::colorNumeric(isochrone_color, iso_map_valid$isomax)(iso_map_valid$isomax),
       fillOpacity = 0.5,
       group = "Isochrones",
-      label = ~label,  # Add this line to include labels
-      layerId = ~iso_map_valid$isomax  # Add this line to assign an id to each layer
+      label = ~label,
+      layerId = ~iso_map_valid$isomax
     ) %>%
     leaflet::addCircles(
       data = sf::st_coordinates(specified_location),
@@ -92,6 +108,19 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
       options = leaflet::layersControlOptions(collapsed = TRUE)
     )
 
-  # Return the map
-  return(map)
+  # Export data as geopackage if output_file is provided
+  if (!is.null(output_file)) {
+    sf::st_write(osm_sf, output_file, layer = "green_spaces", append = FALSE)
+    sf::st_write(iso_map_valid, output_file, layer = "isochrones", append = TRUE)
+    sf::st_write(specified_location, output_file, layer = "location", append = TRUE)
+    message(paste("Data exported to", output_file))
+  }
+
+  # Return both the map and the spatial data
+  return(list(
+    map = map,
+    green_spaces = osm_sf,
+    isochrones = iso_map_valid,
+    location = specified_location
+  ))
 }

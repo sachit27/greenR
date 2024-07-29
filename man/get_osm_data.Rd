@@ -12,7 +12,9 @@ get_osm_data(
 )
 }
 \arguments{
-\item{bbox}{A string representing the bounding box area or the location (e.g., "Lausanne, Switzerland").}
+\item{bbox}{Either a string representing the location (e.g., "Lausanne, Switzerland") or
+a numeric vector of length 4 representing the bounding box coordinates
+in the order: c(left, bottom, right, top).}
 
 \item{server_url}{Optional string representing an alternative Nominatim server URL.}
 
@@ -34,6 +36,11 @@ Nominatim server, you can specify an alternative server URL and credentials (use
 }
 \examples{
 \donttest{
+  # Using a location name
   osm_data <- get_osm_data("Lausanne, Switzerland")
+
+  # Using coordinates for a bounding box
+  bbox_coords <- c(6.6, 46.5, 6.7, 46.6)  # Example coordinates near Lausanne
+  osm_data <- get_osm_data(bbox_coords)
 }
 }
