@@ -3,7 +3,7 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 
 #' Create a 3D Linestring Map
 #'
-#' This function creates a 3D linestring map using Mapbox GL JS and saves it as an HTML file.
+#' This function creates a 3D linestring map using Mapbox GL JS and saves it as an HTML file. The data should not contain complex objects like list columns.
 #' The map visualizes linestring data with an associated green index, allowing for interactive
 #' exploration of the data.
 #'
