@@ -45,6 +45,10 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
   # Transform data to WGS 84 (EPSG:4326)
   data <- sf::st_transform(data, 4326)
 
+  # Extract the min and max values for the green index column
+  min_value <- min(data[[green_index_col]], na.rm = TRUE)
+  max_value <- max(data[[green_index_col]], na.rm = TRUE)
+
   # Convert sf object to GeoJSON
   temp_geojson <- tempfile(fileext = ".geojson")
   sf::st_write(data, temp_geojson, driver = "GeoJSON")
@@ -56,7 +60,7 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
     map_center <- c((bbox$xmin + bbox$xmax) / 2, (bbox$ymin + bbox$ymax) / 2)
   }
 
-  # Create HTML content
+  # Create HTML content with dynamic variable references and legend values
   html_content <- sprintf('
 <!DOCTYPE html>
 <html lang="en">
@@ -136,7 +140,9 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
         const data = %s;
         let lineWidth = 5;
 
-        const colorScale = d3.scaleSequential(d3.%s).domain([0, 1]);
+        const minValue = %f;
+        const maxValue = %f;
+        const colorPalette = d3.%s;
 
         map.on("load", () => {
             map.addSource("linestrings", {
@@ -154,8 +160,8 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
                         "interpolate",
                         ["linear"],
                         ["get", "%s"],
-                        0, colorScale(0),
-                        1, colorScale(1)
+                        minValue, colorPalette(0),
+                        maxValue, colorPalette(1)
                     ]
                 }
             });
@@ -217,7 +223,7 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
                 const greenIndex = e.features[0].properties["%s"];
                 new mapboxgl.Popup()
                     .setLngLat(coordinates)
-                    .setHTML(`<strong>Green Index:</strong> ${greenIndex.toFixed(2)}`)
+                    .setHTML(`<strong>%s:</strong> ${greenIndex.toFixed(2)}`)
                     .addTo(map);
             });
 
@@ -237,7 +243,7 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
             canvas.width = legendWidth;
             canvas.height = legendHeight;
             const ctx = canvas.getContext("2d");
-            const legendScale = d3.scaleSequential(d3.%s).domain([0, 1]);
+            const legendScale = d3.scaleSequential(colorPalette).domain([0, 1]);
             for (let i = 0; i < legendWidth; ++i) {
                 const value = i / legendWidth;
                 ctx.fillStyle = legendScale(value);
@@ -248,9 +254,9 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
             const legendValues = document.createElement("div");
             legendValues.innerHTML = `
                 <div style="display: flex; justify-content: space-between;">
-                    <span>0</span>
-                    <span>0.5</span>
-                    <span>1</span>
+                    <span>${minValue.toFixed(2)}</span>
+                    <span>${((minValue + maxValue) / 2).toFixed(2)}</span>
+                    <span>${maxValue.toFixed(2)}</span>
                 </div>
             `;
             legend.appendChild(legendValues);
@@ -260,7 +266,7 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
     </script>
 </body>
 </html>
-', green_index_col, mapbox_token, map_center[1], map_center[2], map_zoom, data_json, color_palette, green_index_col, green_index_col, color_palette)
+', green_index_col, mapbox_token, map_center[1], map_center[2], map_zoom, data_json, min_value, max_value, color_palette, green_index_col, green_index_col, green_index_col)
 
   # Conditionally write the HTML content and open the file if interactive
   if (interactive()) {
@@ -277,3 +283,4 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
 
   invisible(NULL)
 }
+
