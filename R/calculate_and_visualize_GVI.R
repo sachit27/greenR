@@ -30,7 +30,7 @@ calculate_and_visualize_GVI <- function(image_path) {
                                   sim_wA = 10,
                                   sim_wB = 10,
                                   sim_color_radius = 10,
-                                  verbose = TRUE)
+                                  verbose = FALSE)
 
   # Internal Function to Check if Pixel is Green
   is_green_pixel <- function(R, G, B) {
