@@ -2,7 +2,7 @@
 % Please edit documentation in R/create_accessibility_visualizations.R
 \name{create_accessibility_visualizations}
 \alias{create_accessibility_visualizations}
-\title{Create Green Space Accessibility Visualizations (Publication Ready, Inside Axis Labels)}
+\title{Create Green Space Accessibility Visualizations}
 \usage{
 create_accessibility_visualizations(
   accessibility_analysis,

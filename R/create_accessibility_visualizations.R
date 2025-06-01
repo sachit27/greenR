@@ -1,4 +1,4 @@
-#' Create Green Space Accessibility Visualizations (Publication Ready, Inside Axis Labels)
+#' Create Green Space Accessibility Visualizations
 #'
 #' Generates static and interactive visualizations for green space accessibility,
 #' including distance maps, coverage plots (spatial and population-weighted), and a radar plot
@@ -41,6 +41,7 @@
 #' cat(viz$summary)
 #' print(viz$directional_table)
 #' }
+#' @export
 create_accessibility_visualizations <- function(
     accessibility_analysis,
     green_areas,

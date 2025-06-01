@@ -36,3 +36,34 @@ Computes green space accessibility using network distances from grid centroids t
 Supports travel modes like walking, cycling, and driving by filtering appropriate road types and assigning travel speed.
 Optionally supports population-weighted metrics if population raster data is provided (e.g., GHSL).
 }
+\examples{
+\dontrun{
+# Example 1: Green accessibility using OSM network and green polygons, no population
+data <- get_osm_data("City of London, United Kingdom")
+result_no_pop <- analyze_green_accessibility(
+  network_data = data$highways$osm_lines,
+  green_areas = data$green_areas$osm_polygons,
+  mode = "walking",
+  grid_size = 300
+)
+print(result_no_pop$stats)
+
+# Example 2: With GHSL population raster (if you have the raster file)
+library(terra)
+ghsl_path <- "GHS_POP_E2025_GLOBE_R2023A_54009_100_V1_0_R4_C19.tif"  # Update path as needed
+pop_raster_raw <- terra::rast(ghsl_path)
+
+# Optionally, crop raster to the city area (recommended for speed)
+# aoi <- sf::st_transform(st_as_sfc(st_bbox(data$highways$osm_lines)), terra::crs(pop_raster_raw))
+# pop_raster_raw <- terra::crop(pop_raster_raw, aoi)
+
+result_with_pop <- analyze_green_accessibility(
+  network_data = data$highways$osm_lines,
+  green_areas = data$green_areas$osm_polygons,
+  mode = "walking",
+  grid_size = 300,
+  population_raster = pop_raster_raw
+)
+print(result_with_pop$stats)
+}
+}
