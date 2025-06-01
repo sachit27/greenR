@@ -189,12 +189,12 @@ chm_analysis <- function(
     } else {
       max_direct_mosaic <- 8
       if (length(valid_files) <= max_direct_mosaic) {
-        mosaic_safe <- terra::mosaic(terra::sprc(lapply(valid_files, terra::rast)), fun = "max", na.rm = TRUE)
+        mosaic_safe <- terra::mosaic(terra::sprc(lapply(valid_files, terra::rast)), fun = "max")
       } else {
         chunk_size_mosaic <- min(8, ceiling(length(valid_files) / (actual_n_cores * 1.5)))
         file_chunks <- split(valid_files, ceiling(seq_along(valid_files) / chunk_size_mosaic))
         temp_mosaics <- lapply(file_chunks, function(chunk) terra::mosaic(terra::sprc(lapply(chunk, terra::rast)), fun = "max", na.rm = TRUE))
-        mosaic_safe <- terra::mosaic(terra::sprc(temp_mosaics), fun = "max", na.rm = TRUE)
+        mosaic_safe <- terra::mosaic(terra::sprc(temp_mosaics), fun = "max")
       }
     }
   }

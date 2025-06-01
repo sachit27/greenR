@@ -92,6 +92,28 @@ green_space_clustering(green_areas_data, num_clusters = 3)
 ```
 ![Green_Areas and Clusters](/vignettes/vis.jpg)
 
+## Green and Tree Count Density Analysis
+
+The analyze_green_and_tree_count_density() function quantifies the spatial distribution and inequality of green areas or tree locations within an urban area using hexagonal spatial bins. Users can select either green area polygons or tree point data from OpenStreetMap as the input.
+
+- Method: The function divides the study area into hexagons (using the H3 spatial indexing system) and counts either the number of green polygons or trees in each hexagon. Multiple classification schemes (quantile, Jenks, fixed thresholds) are available to assign each hexagon to low, medium, or high density classes, automatically selecting a fallback if the data are sparse.Spatial metrics are calculated, including counts per km² over the hexagonal area.
+- Analytics: The function produces a comprehensive set of summary statistics and inequality measures, including the total, mean, and median counts per hexagon, as well as the Gini index to quantify spatial inequality in the distribution of green areas or trees. It also calculates skewness and kurtosis to characterize the shape of the distribution, and generates the Lorenz curve with its area-under-curve to visualize and measure inequality. Additionally, the function reports the classification method and the bin thresholds used to categorize density across the study area.
+
+Interactive maps (Leaflet) and plots (such as the Lorenz curve) are generated automatically. Results and metrics can also be exported as GeoJSON and JSON files for further analysis.
+
+```R
+osm_data <- get_osm_data("Zurich, Switzerland")
+result <- analyze_green_and_tree_count_density(
+  osm_data = osm_data,
+  mode = "tree_density", #or you can use "green_area"
+  h3_res = 8,
+  save_lorenz = TRUE
+)
+result$map        # Interactive Leaflet map
+result$analytics  # Summary statistics and Gini index
+result$lorenz_plot # Lorenz curve plot (if saved)
+```
+
 ## Accessibility analysis
 
 Mapbox Version (Dynamic): The 'accessibility_mapbox' function creates an accessibility map using Mapbox GL JS. This map shows green areas and allows users to generate isochrones for walking times. The resulting HTML file includes interactive features for changing the walking time and moving the location marker dynamically.
@@ -119,38 +141,36 @@ result <- accessibility_greenspace(
 ```
 ![Isochrone](/vignettes/isochrone.jpg)
 
-The 'nearest_greenspace' function calculates and visualizes the shortest walking route to the nearest green space of a specified type from a given location. You can also select the type of green space (c("park", "forest")). By default it looks at all the green space.
+## Green Space Accessibility, Directionality, and Population Coverage
+
+greenR provides functions to measure and visualize urban residents’ access to green spaces using actual street networks, multiple transport modes, and high-resolution population data.
+
+- Accessibility Analysis: The analyze_green_accessibility() function calculates the network-based distance from a regular grid of locations across the city to the nearest mapped green space. This is done using real street networks for different modes of travel—walking, cycling, or driving. The analysis can also incorporate gridded population data (for example: GHSL GHS-POP, epoch 2025, 100m resolution, Mollweide projection) to compute population-weighted accessibility metrics. Accessibility is summarized as the percentage of the city’s area, and separately, the percentage of the population within 400m and 800m of a green space.
+- Directionality of Access: The analysis quantifies how green space access varies by compass direction (N, NE, E, SE, S, SW, W, NW) from each grid cell. This directionality metric helps identify spatial patterns and potential barriers or corridors in green space exposure.
+- Visualization: The create_accessibility_visualizations() function summarizes the results in three main plots. A grid map showing the minimum network distance to the nearest green space for each location. A barplot of spatial and population-weighted coverage within 400m and 800m thresholds. A radar plot representing directional coverage, where each axis shows the average green space access in that direction. An interactive Leaflet map is also produced, combining distance, population, and green space layers for exploration.
+
+Below is a sample output for Basel, Switzerland, showing spatial, population-weighted, and directional green space accessibility.
+![Direction](/vignettes/access.jpg)
 
 ```R
-map <- nearest_greenspace(data$highways, data$green_areas, 51.4761, -0.2008)
-print(map)  # Displays the interactive map
+data <- get_osm_data(Basel, Switzerland)
+result <- analyze_green_accessibility(
+  network_data = data$highways$osm_lines,
+  green_areas = data$green_areas$osm_polygons,
+  mode = "walking",
+  grid_size = 300,
+  population_raster = ghsl_pop_raster_2025
+)
+viz <- create_accessibility_visualizations(
+  accessibility_analysis = result,
+  green_areas = data$green_areas$osm_polygons,
+  mode = "walking"
+)
+print(viz$distance_map)
+print(viz$coverage_plot)
+print(viz$directional_plot)
+viz$leaflet_map
 ```
-![Nearest GreenSpace](/vignettes/nearest_greenspace.png)
-
-## Visualize green space coverage with Hexagonal Bins
-
-The 'hexGreenSpace' function offers an innovative approach to visualizing the distribution and density of green spaces within a specified urban area using hexagonal binning. This method provides a clear, quantifiable view of green coverage, integrating both green areas and tree data to present a comprehensive spatial analysis.
-
-### Key Features
-
-1. Customizable Hexagon Size: Adjust the granularity of the analysis with custom hexagon dimensions.
-2. Color-Coded Visualization: Utilize a range of color palettes to enhance the visual appeal and interpretability of the map.
-3. Interactive Maps: Explore detailed interactive maps generated through Leaflet for an intuitive understanding of data.
-4. Statistical Insights: Access a violin plot displaying the distribution of green space coverage across the hexagons, with key statistical annotations like mean, median, and standard deviation directly on the plot for immediate insights.
-
-```R
-data <- get_osm_data("City of London, United Kingdom")
-green_areas_data <- data$green_areas
-tree_data <- data$trees
-
-# Generate the visualization
-hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300, color_palette = "viridis")
-
-# Display the hex bin map and the statistical violin plot
-print(hex_map$map)  # Display the map
-print(hex_map$violin)  # Display the violin plot
-```
-![Hexbinplot](/vignettes/hexv.jpg)
 
 ## Calculate the green index for the specified city
 
@@ -249,6 +269,37 @@ map <- save_as_leaflet(green_index, "File Path")
 ![Map](/vignettes/shiny.jpg)
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
+
+
+## Canopy Height Model (CHM) Analysis with ALS GEDI Data
+
+The chm_analysis() function enables robust analysis and visualization of canopy height using Meta & WRI’s global 1m ALS GEDI v6 dataset. This function automatically downloads, mosaics, and processes high-resolution canopy height raster tiles for any area of interest, defined by a city name, bounding box, GeoJSON, or user-supplied .tif file.
+
+- Data Source: Meta & WRI 1m ALS GEDI v6 global canopy height model (2024), covering most vegetated land worldwide.
+
+- Features: Computes statistics, generates publication-quality maps and interactive web maps, and quantifies tree cover above a user-defined height.
+
+- Performance: Processing may take significant time for large regions due to high data volume and tile downloads.
+
+The implementation is inspired by the excellent chmloader R package, adapted for greater flexibility and integration with the greenR urban analytics workflow.
+
+![CHM](/vignettes/chm.jpg)
+
+```R
+# Analyze canopy structure for Basel, Switzerland (bounding box example)
+result <- chm_analysis(
+  bbox = c(7.55, 47.54, 7.62, 47.59),     # xmin, ymin, xmax, ymax (WGS84)
+  output_dir = "chm_output",               # Output directory for files
+  max_tiles = 5,                           # Limit tiles for demo
+  height_threshold = 2,                    # Height threshold for tree cover stats (meters)
+  create_plots = TRUE                      # Export static and interactive maps
+)
+
+# View main outputs
+print(result$stats)          # Summary statistics
+result$static_map            # Publication-ready map (tmap)
+browseURL(result$mapview_file) # Interactive web map (HTML)
+```
 
 ## Green View Index
 This function allows the users to quantify urban greenness through image analysis. Utilizing the [SuperpixelImageSegmentation library](https://cran.r-project.org/web/packages/SuperpixelImageSegmentation/SuperpixelImageSegmentation.pdf), it reads an image of an urban landscape and segments it into superpixels. The Green View Index (GVI) is then calculated by identifying green pixels within these segments. The GVI provides an objective measure of the proportion of visible vegetation in an image and is an important indicator for understanding urban greenness and its impact on ecological and human health.
