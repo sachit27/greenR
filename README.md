@@ -1,9 +1,9 @@
 
 
 <p float="left">
-  <img src="/vignettes/logo.jpg" width="200" />
+  <img src="/vignettes/logo.jpg" width="220" />
+  <img src="/vignettes/zh_network.jpg" width="230" />
   <img src="/vignettes/zh_gi.jpg" width="300" />
-  <img src="/vignettes/zh_access.jpg" width="280" />
 </p>
 
 # greenR: An R Package for Quantifying Urban Greenness
