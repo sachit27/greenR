@@ -7,10 +7,7 @@
 rename_duplicate_columns(df)
 }
 \arguments{
-\item{df}{Data frame with potential duplicate columns}
-}
-\value{
-Data frame with unique column names
+\item{df}{A data.frame. The input data frame to rename duplicate columns in.}
 }
 \description{
 Helper function to rename duplicate columns

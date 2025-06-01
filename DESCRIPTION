@@ -1,6 +1,6 @@
 Package: greenR
 Title: Green Index Quantification, Analysis and Visualization
-Version: 0.0.1.2
+Version: 0.0.1.3
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
@@ -15,10 +15,10 @@ Imports:
     magrittr,
     dplyr,
     ggplot2,
-    osmdata,
     sf,
     htmltools,
     leaflet,
+    osmdata,
     shiny,
     tibble,
     SuperpixelImageSegmentation,
@@ -34,7 +34,22 @@ Imports:
     htmlwidgets,
     viridisLite,
     rstudioapi,
-    jsonlite
+    jsonlite,
+    tmap,
+    mapview,
+    terra,
+    curl,
+    parallel,
+    igraph,
+    purrr,
+    sfnetworks,
+    patchwork,
+    h3jsr,
+    classInt,
+    moments,
+    ineq,
+    progress,
+    viridis
 Suggests:
     knitr
 VignetteBuilder:

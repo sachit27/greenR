@@ -2,9 +2,15 @@
 % Please edit documentation in R/calculate_green_index.R
 \name{calculate_green_index}
 \alias{calculate_green_index}
-\title{Calculate Green Index}
+\title{Calculate Green Index (Optimized + Robust + Progress Bar)}
 \usage{
-calculate_green_index(osm_data, crs_code, D = 100, buffer_distance = 120)
+calculate_green_index(
+  osm_data,
+  crs_code,
+  D = 100,
+  buffer_distance = 120,
+  show_time = TRUE
+)
 }
 \arguments{
 \item{osm_data}{List containing OSM data (highways, green_areas, trees).}
@@ -14,13 +20,14 @@ calculate_green_index(osm_data, crs_code, D = 100, buffer_distance = 120)
 \item{D}{Distance decay parameter (default = 100).}
 
 \item{buffer_distance}{Buffer distance for spatial joins (default = 120).}
+
+\item{show_time}{Logical, whether to print processing time (default TRUE).}
 }
 \value{
 A spatial data frame with calculated green index.
 }
 \description{
-This function calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB and Duckplyr.
-The green index is calculated based on the proximity of highways to green areas and trees.
+Calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB.
 }
 \examples{
 \donttest{

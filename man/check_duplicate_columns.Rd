@@ -2,16 +2,13 @@
 % Please edit documentation in R/calculate_green_index.R
 \name{check_duplicate_columns}
 \alias{check_duplicate_columns}
-\title{Function to check for duplicate columns and print them}
+\title{Helper function to check for duplicate columns}
 \usage{
 check_duplicate_columns(df)
 }
 \arguments{
-\item{df}{Data frame to check for duplicate columns}
-}
-\value{
-Vector of duplicate column names
+\item{df}{A data.frame. The input data frame to check for duplicate columns.}
 }
 \description{
-Function to check for duplicate columns and print them
+Helper function to check for duplicate columns
 }

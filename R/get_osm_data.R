@@ -13,7 +13,7 @@
 #'   \item{highways}{An sf object with the OSM data about highways in the specified location.}
 #'   \item{green_areas}{An sf object with the OSM data about green areas in the specified location.}
 #'   \item{trees}{An sf object with the OSM data about trees in the specified location.}
-#' @import magrittr
+#' @importFrom magrittr %>%
 #' @importFrom httr GET content authenticate
 #' @importFrom osmdata opq add_osm_feature osmdata_sf
 #' @importFrom sf st_as_sf

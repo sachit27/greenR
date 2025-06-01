@@ -154,12 +154,16 @@ calculate_green_index <- function(osm_data, crs_code, D = 100, buffer_distance =
 }
 
 #' Helper function to rename duplicate columns
+#' @param df A data.frame. The input data frame to rename duplicate columns in.
+
 rename_duplicate_columns <- function(df) {
   colnames(df) <- make.unique(tolower(colnames(df)))
   return(df)
 }
 
 #' Helper function to check for duplicate columns
+#' @param df A data.frame. The input data frame to check for duplicate columns.
+
 check_duplicate_columns <- function(df) {
   dup_cols <- colnames(df)[duplicated(tolower(colnames(df)))]
   if (length(dup_cols) > 0) {
