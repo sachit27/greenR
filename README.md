@@ -1,16 +1,16 @@
 
 
 <p float="left">
-  <img src="/vignettes/logo.jpg" width="230" />
-  <img src="/vignettes/zh_network.jpg" width="250" /> 
+  <img src="/vignettes/logo.jpg" width="200" />
   <img src="/vignettes/zh_gi.jpg" width="300" />
+  <img src="/vignettes/zh_access.jpg" width="280" />
 </p>
 
 # greenR: An R Package for Quantifying Urban Greenness
 
 ## Introduction
 
-greenR is an open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap (OSM), greenR provides a new and scalable method to assign green indices to individual street segments. The package offers a comprehensive solution by facilitating green index quantification, analysis, and visualization. Additionally, greenR supports Mapbox visualizations for interactive exploration of different types of geospatial data, enhancing the analysis with dynamic and engaging visual tools.
+greenR is an open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap (OSM), greenR provides a new and scalable method to assign green indices to individual street segments. The package offers a comprehensive solution by facilitating green index quantification, analysis, and visualization. Additionally, greenR supports Mapbox visualizations for interactive exploration of different types of geospatial data, enhancing the analysis with dynamic and engaging visual tools. Furthermore, it supports several other features like Canopy Height Modeling, Green View Index Calculation, Accessibility analysis, etc.
 
 
 Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
@@ -154,12 +154,20 @@ Below is a sample output for Basel, Switzerland, showing spatial, population-wei
 
 ```R
 data <- get_osm_data(Basel, Switzerland)
+library(terra)
+library(sf)
+# Load and reproject your GHSL raster
+ghsl_path <- "GHS_POP_E2025_GLOBE_R2023A_54009_100_V1_0_R4_C19.tif"
+# Read with terra
+pop_raster_raw <- terra::rast(ghsl_path)
+network <- data$highways$osm_lines
+green   <- data$green_areas$osm_polygons
 result <- analyze_green_accessibility(
-  network_data = data$highways$osm_lines,
-  green_areas = data$green_areas$osm_polygons,
-  mode = "walking",
-  grid_size = 300,
-  population_raster = ghsl_pop_raster_2025
+  network_data      = network,
+  green_areas       = green,
+  mode              = "walking",
+  grid_size         = 300,
+  population_raster = pop_raster_raw
 )
 viz <- create_accessibility_visualizations(
   accessibility_analysis = result,
@@ -171,6 +179,8 @@ print(viz$coverage_plot)
 print(viz$directional_plot)
 viz$leaflet_map
 ```
+Note on edge effects: Grid cells located near the edges of the study area (city boundary or data clipping line) may show artificially high distances to the nearest green space. This is because green spaces located just outside the analysis boundary are not included in the calculation, leading to “edge effects” where accessibility is underestimated at the margins.
+To mitigate this, consider expanding the analysis boundary or including green spaces from a buffer area surrounding the city. Alternatively, interpret results for boundary cells with caution.
 
 ## Calculate the green index for the specified city
 
