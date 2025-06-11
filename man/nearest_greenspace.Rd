@@ -38,7 +38,7 @@ shortest walking route using the road network optimized for walking. The result 
 displaying the path, the starting location, and the destination green space, with details on distance and estimated walking time.
 }
 \examples{
-\donttest{
+\dontrun{
   data <- get_osm_data("Fulham, London, United Kingdom")
   highway_data <- data$highways
   green_areas_data <- data$green_areas

@@ -17,7 +17,7 @@ utils::globalVariables(c("sd"))
 #' @importFrom spatstat.geom as.ppp nndist owin
 #' @importFrom stats sd
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' d1 <- get_osm_data("New Delhi, India")
 #' dsf <- d1$green_areas$osm_polygons
 #' d2 <- get_osm_data("Basel, Switzerland")

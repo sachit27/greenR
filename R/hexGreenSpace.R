@@ -20,7 +20,7 @@ utils::globalVariables(c("geometry", "intersection_area", "coverage_pct"))
 #' @importFrom units set_units
 #' @importFrom stats median sd
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'   data <- get_osm_data("City of London, United Kingdom")
 #'   green_areas_data <- data$green_areas
 #'   tree_data <- data$trees

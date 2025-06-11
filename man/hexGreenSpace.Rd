@@ -31,7 +31,7 @@ Creates a hexagonal binning map to visualize the percentage of green space cover
 Users can customize the hexagon size, color palette, and other map features.
 }
 \examples{
-\donttest{
+\dontrun{
   data <- get_osm_data("City of London, United Kingdom")
   green_areas_data <- data$green_areas
   tree_data <- data$trees

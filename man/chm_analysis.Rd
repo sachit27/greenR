@@ -80,6 +80,12 @@ Meta & WRI's 1m ALS GEDI v6 global dataset. Downloads, mosaics,
 crops, analyzes, and visualizes CHM data for any AOI, or analyzes a
 user-supplied .tif directly. Outputs both publication-quality (tmap)
 and interactive (mapview) maps, with progress/status reporting.
+
+\strong{CRAN policy note:} This function downloads data from the internet if
+\code{location}, \code{bbox}, or \code{aoi_geojson} are specified and the required local files
+are not present. Internet access is not permitted in CRAN checks or
+non-interactive sessions. If you are running in batch, automated, or non-interactive
+mode (including CRAN), you \strong{must} provide all required files locally (e.g., \code{chm_tif}, \code{aoi_geojson}).
 }
 \examples{
 \dontrun{

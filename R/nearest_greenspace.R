@@ -20,7 +20,7 @@ utils::globalVariables(c("landuse", "leisure"))
 #' @importFrom osrm osrmRoute
 #' @importFrom dplyr filter
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'   data <- get_osm_data("Fulham, London, United Kingdom")
 #'   highway_data <- data$highways
 #'   green_areas_data <- data$green_areas

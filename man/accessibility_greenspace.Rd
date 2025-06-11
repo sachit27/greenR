@@ -40,6 +40,11 @@ This function generates a leaflet map that shows green spaces accessible within
 a specified walking time from a given location. It also exports the spatial data
 as a geopackage file for use in GIS software like QGIS.
 }
+\details{
+Note: This function requires an OSRM server for isochrone computation. By default,
+it uses the public OSRM API, which requires internet access. During CRAN checks
+and non-interactive sessions, the function will halt to prevent unintended web requests.
+}
 \examples{
 \dontrun{
   # First, get OSM data (this requires internet connection)

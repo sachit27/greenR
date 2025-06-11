@@ -30,7 +30,7 @@ A spatial data frame with calculated green index.
 Calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB.
 }
 \examples{
-\donttest{
+\dontrun{
   osm_data <- get_osm_data("Basel, Switzerland")
   green_index <- calculate_green_index(osm_data, 2056)
 }

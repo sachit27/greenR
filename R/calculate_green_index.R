@@ -17,7 +17,7 @@ utils::globalVariables(c("green_index", "green_index_green_area", "green_index_t
 #' @importFrom data.table as.data.table :=
 #' @importFrom progress progress_bar
 #' @examples
-#' \donttest{
+#' \dontrun{
 #'   osm_data <- get_osm_data("Basel, Switzerland")
 #'   green_index <- calculate_green_index(osm_data, 2056)
 #' }

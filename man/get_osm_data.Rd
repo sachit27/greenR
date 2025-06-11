@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_osm_data.R
 \name{get_osm_data}
 \alias{get_osm_data}
-\title{Download OSM Data}
+\title{Download OSM Data (Interactive Use Only)}
 \usage{
 get_osm_data(
   bbox,
@@ -25,12 +25,17 @@ in the order: c(left, bottom, right, top).}
 \value{
 A list containing:
 \item{highways}{An sf object with the OSM data about highways in the specified location.}
-\item{green_areas}{An sf object with the OSM data about green areas in the specified location.}
+\item{green_areas}{A list with an sf object of green area polygons.}
 \item{trees}{An sf object with the OSM data about trees in the specified location.}
 }
 \description{
-This function downloads OpenStreetMap (OSM) data for a specified location or bounding box.
-The OSM data includes information about highways, green areas, and trees in the specified location.
+Downloads OpenStreetMap (OSM) data for a specified location or bounding box.
+Includes highways, green areas, and trees for the specified location.
+}
+\details{
+\strong{Note:} This function requires an internet connection and must be run interactively.
+It performs HTTP requests to external APIs (Nominatim and Overpass via \code{osmdata}).
+On CRAN and in non-interactive sessions, this function will error.
 }
 \examples{
 \dontrun{
