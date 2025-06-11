@@ -4,6 +4,10 @@
 #' a specified walking time from a given location. It also exports the spatial data
 #' as a geopackage file for use in GIS software like QGIS.
 #'
+#' Note: This function requires an OSRM server for isochrone computation. By default,
+#' it uses the public OSRM API, which requires internet access. During CRAN checks
+#' and non-interactive sessions, the function will halt to prevent unintended web requests.
+#'
 #' @param green_area_data A list containing green area data, usually obtained from the \code{get_osm_data} function.
 #' @param location_lat Numeric latitude of the specified location.
 #' @param location_lon Numeric longitude of the specified location.
@@ -44,6 +48,11 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
                                      location_color = "blue", isochrone_color = "viridis",
                                      output_file = NULL) {
 
+  # Prevent unintentional internet use in CRAN checks or non-interactive sessions
+  if (!interactive() && is.null(getOption("osrm.server"))) {
+    stop("accessibility_greenspace() requires an OSRM server. By default, it uses a public OSRM API, which is not allowed during CRAN checks or in non-interactive sessions. Please run interactively or set up a local OSRM server via options(osrm.server = 'http://localhost:5000/').")
+  }
+
   # Error Handling: Check if latitude and longitude are numeric and within valid range
   if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
     stop("Invalid latitude provided. Latitude should be a numeric value between -90 and 90.")
@@ -67,9 +76,11 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
     sf::st_transform(crs = 4326)
 
   # Create the isochrone map using the specified location and walking time
-  iso_map <- osrm::osrmIsochrone(loc = specified_location,
-                                 breaks = seq(from = 0, to = max_walk_time, by = 5),
-                                 osrm.profile = "foot")
+  iso_map <- osrm::osrmIsochrone(
+    loc = specified_location,
+    breaks = seq(from = 0, to = max_walk_time, by = 5),
+    osrm.profile = "foot"
+  )
 
   # Make the isochrone map valid for plotting
   iso_map_valid <- sf::st_make_valid(iso_map)
