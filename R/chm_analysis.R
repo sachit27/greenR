@@ -6,6 +6,13 @@
 #' user-supplied .tif directly. Outputs both publication-quality (tmap)
 #' and interactive (mapview) maps, with progress/status reporting.
 #'
+#' @details
+#' **CRAN policy note:** This function downloads data from the internet if
+#' `location`, `bbox`, or `aoi_geojson` are specified and the required local files
+#' are not present. Internet access is not permitted in CRAN checks or
+#' non-interactive sessions. If you are running in batch, automated, or non-interactive
+#' mode (including CRAN), you **must** provide all required files locally (e.g., `chm_tif`, `aoi_geojson`).
+#'
 #' @description
 #' - **Data Source:** ALS GEDI v6 global canopy height model, Meta & WRI (2024).
 #' - **Interactive map is downsampled for browser performance**; see `max_cells_mapview`.
@@ -80,6 +87,18 @@ chm_analysis <- function(
     user_agent_string = "R/chm_analysis_script (your_email_or_project_url)",
     request_timeout = 300
 ) {
+  # CRAN/interactivity guard for internet access
+  # If we do NOT have a local file to use, and we're not interactive, block execution
+  if (!interactive() && is.null(chm_tif) &&
+      (is.null(aoi_geojson) || !file.exists(aoi_geojson)) &&
+      is.null(bbox) && is.null(location)) {
+    stop("For CRAN or non-interactive sessions, you must provide a local CHM raster (`chm_tif`) or a local AOI GeoJSON (`aoi_geojson`). Internet access is not allowed in non-interactive mode.")
+  }
+  # If non-interactive and using internet (e.g., bbox, location, aoi_geojson remote), block
+  if (!interactive() && (is.null(chm_tif) || !file.exists(chm_tif))) {
+    stop("chm_analysis() downloads data from the internet if not supplied a local raster (chm_tif). This is not permitted in non-interactive or CRAN checks. Please run interactively or provide all files locally.")
+  }
+
   pkgs <- c("sf", "terra", "httr", "jsonlite", "glue", "curl", "ggplot2", "viridis",
             "tmap", "mapview", "htmlwidgets", "parallel")
   for (pkg in pkgs) {
@@ -91,10 +110,7 @@ chm_analysis <- function(
 
   # AOI (required even if chm_tif provided, for masking/stats/maps)
   aoi <- NULL; aoi_cache_file <- file.path(output_dir, "aoi_cache.rds")
-  if (cache_tiles && file.exists(aoi_cache_file)) {
-    message("Loaded AOI from cache.")
-    aoi <- readRDS(aoi_cache_file)
-  } else if (!is.null(aoi_geojson)) {
+  if (!is.null(aoi_geojson) && file.exists(aoi_geojson)) {
     message("Using AOI from GeoJSON.")
     aoi <- sf::st_read(aoi_geojson, quiet = TRUE) |> sf::st_transform(3857)
     if (cache_tiles) saveRDS(aoi, aoi_cache_file)
@@ -105,6 +121,7 @@ chm_analysis <- function(
     aoi <- sf::st_sf(geometry = sf::st_sfc(sf::st_polygon(list(coords)), crs = 4326)) |> sf::st_transform(3857)
     if (cache_tiles) saveRDS(aoi, aoi_cache_file)
   } else if (!is.null(location)) {
+    if (!interactive()) stop("Geocoding requires internet access and is not allowed in non-interactive or CRAN mode.")
     message("Geocoding AOI with Nominatim: ", location)
     nom_url <- "https://nominatim.openstreetmap.org/search"
     resp <- httr::GET(
@@ -131,7 +148,8 @@ chm_analysis <- function(
       mosaic_safe <- terra::project(mosaic_safe, terra::crs(aoi))
     }
   } else {
-    # Download tiles as before
+    # Download tiles as before (allowed only interactively)
+    if (!interactive()) stop("Downloading tiles is not permitted in non-interactive or CRAN mode.")
     idx_url  <- "https://dataforgood-fb-data.s3.amazonaws.com/forests/v1/alsgedi_global_v6_float/tiles.geojson"
     idx_file <- file.path(output_dir, "tiles.geojson")
     if (!file.exists(idx_file)) curl::curl_download(idx_url, idx_file)
