@@ -153,7 +153,7 @@ Below is a sample output for Basel, Switzerland, showing spatial, population-wei
 ![Direction](/vignettes/access.jpg)
 
 ```R
-data <- get_osm_data(Basel, Switzerland)
+data <- get_osm_data("Basel, Switzerland")
 library(terra)
 library(sf)
 # Load and reproject your GHSL raster
