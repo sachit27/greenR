@@ -1,3 +1,4 @@
+[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
 
 
 <p float="left">
@@ -10,7 +11,7 @@
 
 ## Introduction
 
-greenR is an open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap (OSM), greenR provides a new and scalable method to assign green indices to individual street segments. The package offers a comprehensive solution by facilitating green index quantification, analysis, and visualization. Additionally, greenR supports Mapbox visualizations for interactive exploration of different types of geospatial data, enhancing the analysis with dynamic and engaging visual tools. Furthermore, it supports several other features like Canopy Height Modeling, Green View Index Calculation, Accessibility analysis, etc.
+greenR is an open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap (OSM), greenR provides a new and scalable method to assign green indices to individual street segments. The package offers a comprehensive solution by facilitating green index quantification, equity analysis, and visualization. Additionally, greenR supports Mapbox visualizations for interactive exploration of different types of geospatial data, enhancing the analysis with dynamic and engaging visual tools. Furthermore, it supports several other features like Canopy Height Modeling, Green View Index Calculation, Accessibility analysis, etc.
 
 
 Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
@@ -18,9 +19,11 @@ Accompanied by a Shiny app, greenR can empower researchers, planners, policy-mak
 For more detailed information about the motivation, methodology, and validation, please have a look at this paper published in [Ecological Indicators](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
 
 ## Installation
-
-
-It can be obtained via GitHub by running the command below in R.
+It can be installed via CRAN
+```r
+install.packages("greenR")
+```
+In case there are difficulties in installing through CRAN, you can do it directly via GitHub by running the command below in R.
 
 ```r
 # install.packages("remotes") # Uncomment if you do not have the 'remotes' package installed
