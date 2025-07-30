@@ -1,4 +1,6 @@
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
+![CRAN Total Downloads](https://cranlogs.r-pkg.org/badges/grand-total/greenR)
+
 
 
 <p float="left">
