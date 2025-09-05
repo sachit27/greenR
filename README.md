@@ -24,6 +24,11 @@ Accompanied by a Shiny app, greenR can empower researchers, planners, policy-mak
 
 For more detailed information about the motivation, methodology, and validation, please have a look at this paper published in [Ecological Indicators](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
 
+---
+
+✨ *greenR was selected as the **Winner of the [Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/)**.  
+At the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich, the Swiss Society of Cartography awarded this prize.*    
+
 ## Installation
 It can be installed via CRAN
 ```r
