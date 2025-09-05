@@ -1,12 +1,16 @@
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
 ![CRAN Total Downloads](https://cranlogs.r-pkg.org/badges/grand-total/greenR)
 
-
+<p align="center">
+  <a href="https://kartografie.ch/category/prixcarto/">
+    <img src="vignettes/EDU_mit_SGK.svg" width="140" alt="Award Badge" />
+  </a>
+</p>
 
 <p float="left">
-  <img src="/vignettes/logo.jpg" width="220" />
-  <img src="/vignettes/zh_network.jpg" width="250" />
-  <img src="/vignettes/zh_gi.jpg" width="300" />
+  <img src="vignettes/logo.jpg" width="220" />
+  <img src="vignettes/zh_network.jpg" width="250" />
+  <img src="vignettes/zh_gi.jpg" width="300" />
 </p>
 
 # greenR: An R Package for Quantifying Urban Greenness
