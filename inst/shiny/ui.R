@@ -11,7 +11,13 @@ ui <- fluidPage(
       helpText("This application allows you to download OSM data, calculate the green index, visualize and save the results, perform clustering of green areas, analyze green space accessibility and Green View Index."),
 
       # Input for OSM data
-      textInput("bbox", "Enter location/bounding box"),
+      textInput(
+        "bbox",
+        "Enter location or bounding box",
+        placeholder = "e.g. Lausanne, Switzerland — or — 6.6, 46.5, 6.7, 46.6"
+      ),
+      helpText("Bounding box format: left, bottom, right, top (lon, lat, lon, lat)"),
+
       numericInput("crs_code", "Enter CRS Code", value = 4326),
       helpText(a("What is CRS code?", href = "https://epsg.io/", target = "_blank")),
       numericInput("D", "Enter decay parameter 'D'", value = 100),
@@ -22,7 +28,7 @@ ui <- fluidPage(
       # Download Buttons
       downloadButton("download_csv", "Download Data as CSV"),
       downloadButton("download_json", "Download Data as GeoJSON"),
-      downloadButton("download_html", "Download Green Index Map as HTML"),  # Add this line
+      downloadButton("download_html", "Download Green Index Map as HTML"),
 
       # Clustering Inputs
       numericInput("num_clusters", "Number of Clusters", value = 5),

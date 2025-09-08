@@ -6,17 +6,39 @@ server <- function(input, output, session) {
   library(DT)
   library(sf)
 
-  # Reactive expression for OSM data
+  # Reactive expression for OSM data (now parses bbox text if it's 4 numbers)
   osm_data <- eventReactive(input$osm_button, {
     showNotification("Downloading OSM data...", type = "message")
-    data <- get_osm_data(input$bbox)
+
+    bbox_input <- trimws(input$bbox)
+
+    # Try to parse "left,bottom,right,top" into numeric c(left, bottom, right, top)
+    bbox_val <- tryCatch({
+      parts <- strsplit(gsub("\\s+", "", bbox_input), ",", fixed = TRUE)[[1]]
+      nums <- suppressWarnings(as.numeric(parts))
+      if (length(nums) == 4 && all(!is.na(nums))) {
+        if (!(nums[1] < nums[3] && nums[2] < nums[4])) {
+          showNotification("BBox must satisfy left < right and bottom < top. Falling back to geocoding the text.", type = "warning", duration = 6)
+          bbox_input  # fallback to place-name
+        } else {
+          nums        # use numeric bbox
+        }
+      } else {
+        bbox_input    # treat as place-name
+      }
+    }, error = function(e) bbox_input)
+
+    data <- get_osm_data(bbox_val)
+
     showNotification("OSM data downloaded.", type = "message")
-    return(data)
+    data
   })
 
+  # Safer OSM plot (checks the object exists)
   output$osm_plot <- renderPlot({
     data <- osm_data()
-    if (!is.null(data)) {
+    req(data)
+    if (!is.null(data$highways$osm_lines) && "geometry" %in% names(data$highways$osm_lines)) {
       plot(data$highways$osm_lines$geometry)
     }
   })
@@ -26,14 +48,16 @@ server <- function(input, output, session) {
     showNotification("Calculating Green Index...", type = "message", duration = NULL, id = "green_index")
     index <- calculate_green_index(osm_data(), input$crs_code, input$D, input$buffer_distance)
     showNotification("Green Index calculated.", type = "message", duration = 5, id = "green_index")
-    return(index)
+    index
   })
 
   output$green_index_table <- DT::renderDataTable({
     index <- green_index()
     if (!is.null(index)) {
-      DT::datatable(index %>% select(osm_id, green_index_green_area, green_index_tree, green_index),
-                    options = list(pageLength = 25))
+      DT::datatable(
+        index %>% dplyr::select(osm_id, green_index_green_area, green_index_tree, green_index),
+        options = list(pageLength = 25)
+      )
     }
   })
 
@@ -44,7 +68,11 @@ server <- function(input, output, session) {
     content = function(file) {
       index <- green_index()
       if (!is.null(index)) {
-        write.csv(index %>% select(osm_id, green_index_green_area, green_index_tree, green_index), file)
+        write.csv(
+          index %>% dplyr::select(osm_id, green_index_green_area, green_index_tree, green_index),
+          file,
+          row.names = FALSE
+        )
       }
     }
   )
@@ -56,7 +84,7 @@ server <- function(input, output, session) {
     content = function(file) {
       index <- green_index()
       if (!is.null(index)) {
-        sf::st_write(index, file)
+        sf::st_write(index, file, quiet = TRUE)
       }
     }
   )
@@ -91,8 +119,12 @@ server <- function(input, output, session) {
     req(input$accessibility_button)
     data <- osm_data()
     if (!is.null(data) && "green_areas" %in% names(data)) {
-      accessibility_greenspace(data$green_areas, input$location_lat,
-                               input$location_lon, input$max_walk_time)
+      accessibility_greenspace(
+        data$green_areas,
+        input$location_lat,
+        input$location_lon,
+        input$max_walk_time
+      )
     } else {
       showNotification("Green areas data not available.", type = "error")
     }
@@ -104,7 +136,7 @@ server <- function(input, output, session) {
     showNotification("Calculating Green View Index (GVI)...", type = "message")
     result <- calculate_and_visualize_GVI(input$image_path$datapath)
     showNotification("GVI calculated.", type = "message")
-    return(result)
+    result
   })
 
   output$gvi_segmented_image <- renderPlot({
