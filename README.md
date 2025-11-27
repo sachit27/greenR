@@ -13,14 +13,26 @@
   <img src="vignettes/zh_gi.jpg" width="300" />
 </p>
 
-# greenR: An R Package for Quantifying Urban Greenness
+# greenR: Urban Environmental Analytics for R
 
-## Introduction
+**Quantify. Analyze. Visualize.**
 
-greenR is an open-source R package designed to tackle the challenging task of quantifying urban greenness. Leveraging crowd-sourced data from OpenStreetMap (OSM), greenR provides a new and scalable method to assign green indices to individual street segments. The package offers a comprehensive solution by facilitating green index quantification, equity analysis, and visualization. Additionally, greenR supports Mapbox visualizations for interactive exploration of different types of geospatial data, enhancing the analysis with dynamic and engaging visual tools. Furthermore, it supports several other features like Canopy Height Modeling, Green View Index Calculation, Accessibility analysis, etc.
+greenR is an open-source R package for quantifying, analyzing, and visualizing urban greenness. It uses OpenStreetMap (OSM) and other geospatial sources to assign green indices to street segments and urban areas in a scalable way. The package enables greenness measurement, equity assessment, and interpretive mapping, and includes interactive Mapbox visualizations for exploring results directly on the map.
+Beyond basic greenery metrics, greenR supports canopy height modeling, Green View Index (street-level vegetation visibility), and accessibility to parks and green spaces. It also incorporates urban heat island analysis, allowing researchers to examine how greenness, built density, and micro-climate interact across the urban fabric.
 
+## Key Features
 
-Accompanied by a Shiny app, greenR can empower researchers, planners, policy-makers, and citizens to study urban greenness patterns across cities.
+| Feature | Description |
+|---------|-------------|
+| 🌳 **Green Index Quantification** | Street-segment level greenness scores using OSM data with configurable distance decay functions |
+| 🌲 **Canopy Height Modeling** | 1m resolution tree canopy analysis using Meta/WRI ALS GEDI v6 global dataset |
+| 🚶 **Accessibility Analysis** | Isochrone-based green space accessibility with walking/cycling network routing via Mapbox |
+| 🌡️ **Urban Heat Island Analysis** | Satellite-based thermal mapping with ECOSTRESS/Landsat, Getis-Ord Gi* hotspot detection, and green-heat correlations |
+| 📊 **Spatial Inequality Metrics** | Gini coefficients, Lorenz curves, and H3 hexagonal binning for equity analysis |
+| 🧭 **Directional Analysis** | Orientation-aware green index calculation to assess greenness exposure by direction |
+| 🔗 **Open Data Integration** | Seamless integration with OpenStreetMap, Microsoft Planetary Computer, and GHSL data |
+| 🗺️ **Interactive Visualizations** | Leaflet maps, 3D Mapbox visualizations, and publication-ready ggplot2 outputs |
+| 🖥️ **Shiny Application** | No-code web interface for interactive greenness analysis without programming |
 
 For more detailed information about the motivation, methodology, and validation, please have a look at this paper published in [Ecological Indicators](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
 
