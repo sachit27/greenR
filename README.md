@@ -270,6 +270,45 @@ create_hexmap_3D(
 ```
 ![3D Hex Map](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/hex3d.gif)
 
+## Urban Heat Island (UHI) Analysis
+
+Detect and analyze urban heat islands by integrating satellite thermal imagery with environmental data. The `analyze_and_visualize_uhi()` function automates the entire workflow from data acquisition to publication-ready outputs.
+
+![Hotspot](/vignettes/hotspot.png)
+
+**What it does:**
+- Fetches Land Surface Temperature from **Landsat 8/9**   via Microsoft Planetary Computer.
+- Retrieves green spaces, trees, buildings, and water bodies from **OpenStreetMap**. Supports GHSL Built-up Surface raster for accurate built-up density estimation. If GHSL data is not provided, the function uses building data from OSM.
+- Aggregates data into **H3 hexagonal grids** for consistent spatial analysis.
+- Performs **Getis-Ord Gi* hotspot analysis** with statistical significance testing.
+- Calculates **Moran's I** spatial autocorrelation.
+- Produces interactive leaflet maps as well as static maps.
+- Generates correlation and regression analysis between LST, green coverage, and built-up intensity. Results can also be visualized in 3D on Mapbox.
+```r
+# Analyze urban heat island for Zurich
+result <- analyze_and_visualize_uhi(
+  location = "Zurich, Switzerland",
+  date_range = c("2023-06-01", "2023-08-31"),
+  hex_resolution = 9,
+  ghsl_path = "path/to/ghsl_built.tif",
+  thermal_source = "auto",
+  composite_scenes = TRUE, #Switch to FALSE for faster computation
+  max_scenes = 5,
+  lst_percentile_filter = c(0.01, 0.99),
+  correlation_method = "spearman",
+  use_exactextract = TRUE
+)
+
+# Interactive map with toggleable layers
+result$maps$interactive
+
+# Scatter plots
+result$maps$scatter
+
+# Export results
+result$export_results("zurich_uhi", formats = c("geojson", "csv", "gpkg", "shp")
+```
+
 ## Calculate the percentage of edges with a certain green index
 
 This function groups the edges by their respective green index and calculates the percentage of edges for each green index. For easier interpretation, we categorize the index into three tiers: Low ( < 0.4), Medium (0.4-0.7), and High (> 0.7). 
