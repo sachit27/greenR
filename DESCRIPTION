@@ -1,6 +1,6 @@
 Package: greenR
 Title: Green Index Quantification, Analysis and Visualization
-Version: 0.0.1.4
+Version: 0.0.1.6
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
@@ -8,7 +8,7 @@ Description: Quantification, analysis, and visualization of urban greenness with
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 Imports: 
     DT,
     httr,
@@ -49,8 +49,13 @@ Imports:
     moments,
     ineq,
     progress,
-    viridis
+    viridis,
+    rstac,
+    spdep,
+    scales
 Suggests:
-    knitr
+    knitr,
+    rmarkdown,
+    exactextractr
 VignetteBuilder:
     knitr

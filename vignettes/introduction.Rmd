@@ -297,11 +297,81 @@ res_tif <- chm_analysis(
 print(res_tif$stats)
 ```
 
-# 15. Shiny Application
+# 15. Urban Heat Island (UHI) Analysis
+
+The `analyze_and_visualize_uhi()` function performs comprehensive Urban Heat Island analysis by integrating satellite-derived Land Surface Temperature (LST) data with environmental features from OpenStreetMap. This function automates the entire workflow from data acquisition to visualization.
+
+**Key Features:**
+
+- Automatic retrieval of thermal imagery (ECOSTRESS at 70m or Landsat 8/9 at 100m) via Microsoft Planetary Computer
+- Integration with OSM data (green spaces, trees, buildings, water bodies)
+- H3 hexagonal grid aggregation for consistent spatial analysis
+- Getis-Ord Gi* hotspot analysis with statistical significance testing
+- Moran's I spatial autocorrelation assessment
+- Interactive Leaflet maps and publication-ready ggplot2 visualizations
+- Export functions for GeoJSON, GeoPackage, CSV, and Shapefile formats
+
+**Note:** This function requires internet access to download satellite imagery and OSM data.
+
+```{r, eval = FALSE}
+# Basic UHI analysis for a city
+result <- analyze_and_visualize_uhi(
+  location = "Basel, Switzerland",
+  date_range = c("2023-06-01", "2023-08-31"),
+  hex_resolution = 10,
+  thermal_source = "auto"  # Tries ECOSTRESS first, then Landsat
+)
+
+# View the interactive map (opens in browser/viewer)
+result$maps$interactive
+
+# View static publication-ready maps
+print(result$maps$combined)  # Combined 4-panel map
+print(result$maps$scatter)   # Scatter plot dashboard
+
+# Access statistics
+print(result$stats$descriptive)
+print(result$stats$correlations)
+
+# Check metadata
+print(result$meta)
+```
+
+The function returns a list containing:
+
+- `results`: An sf object with hexagon-level metrics (LST, green coverage, built-up, hotspot categories)
+- `maps`: Interactive Leaflet map and static ggplot2 maps
+- `stats`: Descriptive statistics, correlations, regression results, and Moran's I
+- `meta`: Processing metadata and data source information
+- `export_geojson()` and `export_results()`: Functions for data export
+
+```{r, eval = FALSE}
+# Export results to multiple formats
+result$export_results("basel_uhi", formats = c("geojson", "csv", "gpkg"))
+
+# Using a bounding box instead of city name
+result_bbox <- analyze_and_visualize_uhi(
+  location = c(7.55, 47.53, 7.65, 47.58),  # xmin, ymin, xmax, ymax
+
+  date_range = c("2023-07-01", "2023-07-31"),
+  hex_resolution = 9  # Larger hexagons for faster processing
+)
+
+# With optional GHSL built-up data for more accurate built coverage
+result_ghsl <- analyze_and_visualize_uhi(
+  location = "Zurich, Switzerland",
+  date_range = c("2023-06-01", "2023-08-31"),
+  ghsl_path = "path/to/ghsl_built.tif",
+  composite_scenes = TRUE,  # Composite multiple scenes to reduce cloud gaps
+  max_scenes = 5
+)
+```
+
+# 16. Shiny Application
 
 You can make your own greenness analysis without having to code using an R Shiny implementation of the package. It is easily accessible from within R by calling the function `run_app()`.
 
-# 16. Green View Index
+# 17. Green View Index
 This function allows the users to quantify urban greenness through image analysis. Utilizing the SuperpixelImageSegmentation library, it reads an image of an urban landscape and segments it into superpixels. The Green View Index (GVI) is then calculated by identifying green pixels within these segments. The GVI provides an objective measure of the proportion of visible vegetation in an image and is an important indicator for understanding urban greenness and its impact on ecological and human health.
 
 ```{r, eval = FALSE}
@@ -317,7 +387,7 @@ OpenImageR::writeImage(result$segmented_image, "segmented_image.png")
 OpenImageR::writeImage(result$green_pixels_image, "green_pixels_image.png")
 ```
 
-# 17. Green Space Similarity Index (GSSI)
+# 18. Green Space Similarity Index (GSSI)
 
 The `gssi()` function calculates the Green Space Similarity Index (GSSI), a composite metric for evaluating and comparing urban green spaces across different regions by analyzing their size and spatial connectivity.
 This function transforms spatial data into an equal-area projection for accurate area measurements, computes the total area of green spaces, and assesses their spatial connectivity using the Average Nearest Neighbor Distance (ANND). This dual approach provides a comprehensive view of the distribution and accessibility of green spaces.
