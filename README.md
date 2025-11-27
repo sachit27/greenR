@@ -1,5 +1,9 @@
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
 ![CRAN Total Downloads](https://cranlogs.r-pkg.org/badges/grand-total/greenR)
+![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Open Science](https://img.shields.io/badge/Open%20Science-✓-purple)
+![FAIR](https://img.shields.io/badge/FAIR-Data-orange)
+
 
 <p align="center">
   <a href="https://kartografie.ch/category/prixcarto/">
