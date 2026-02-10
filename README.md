@@ -96,6 +96,21 @@ Or
 ```R
 data <- get_osm_data("Fulham, London, United Kingdom")
 ```
+### Handling Overpass API Timeouts
+OpenStreetMap data is retrieved via the Overpass API. Occasionally, you may encounter an error such as: HTTP 504 Gateway Timeout
+This typically occurs when the default Overpass server is temporarily overloaded.
+
+If this happens, you can switch to an alternative Overpass mirror before running get_osm_data():
+
+```R
+library(osmdata)
+
+# Set an alternative Overpass server
+set_overpass_url("https://lambert.openstreetmap.de/api/interpreter")
+
+# Then retry
+data <- get_osm_data("Basel, Switzerland")
+```
 
 ### Option 2: Bounding box coordinates
 
