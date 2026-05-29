@@ -24,6 +24,8 @@
 
 `greenR` is an award-winning open-source R package for quantifying, analyzing, and visualizing urban greenness and microclimate priorities. It integrates OpenStreetMap, satellite imagery, population grids, and canopy height models into a unified analytical pipeline — from street-segment greenness scoring to city-scale climate-responsive planting prioritization.
 
+If you find `greenR` useful, please consider starring the repository on GitHub.
+
 ## Which Function Should I Use?
 
 Start here if you are new to the package:
