@@ -24,32 +24,6 @@
 
 `greenR` is an award-winning open-source R package for quantifying, analyzing, and visualizing urban greenness and microclimate priorities. It integrates OpenStreetMap, satellite imagery, population grids, and canopy height models into a unified analytical pipeline — from street-segment greenness scoring to city-scale climate-responsive planting prioritization.
 
-If you find `greenR` useful, please consider starring the repository on GitHub.
-
-## Which Function Should I Use?
-
-Start here if you are new to the package:
-
-- `calculate_green_index()` for street-level greenness scores from OSM network data.
-- `uh_svf()` for sky-view factor analysis using terrain, buildings, canopy, and street/grid ray-casting.
-- `uh_decision()` for the full urban heat and planting-priority workflow, including optional local population rasters such as GHSL.
-
-In short:
-
-- If you want a green street metric, use `calculate_green_index()`.
-- If you want geometry-based visibility and canyon exposure, use `uh_svf()`.
-- If you want a multi-layer priority analysis that can weight population, use `uh_decision()`.
-
-Other exported tools are grouped below so they are easier to find:
-
-- Data access and preprocessing: `get_osm_data()`, `convert_to_point()`, `calculate_percentage()`
-- Green space and accessibility analysis: `accessibility_greenspace()`, `accessibility_mapbox()`, `analyze_green_accessibility()`, `create_accessibility_visualizations()`, `nearest_greenspace()`, `visualize_green_spaces()`
-- Priority and equity workflows: `analyze_and_visualize_uhi()`, `analyze_green_and_tree_count_density()`, `assess_urban_priority_equity()`, `build_urban_priority_grid()`, `build_urban_block_priority()`, `build_street_canyon_priority()`, `emulate_canyon_microclimate()`, `green_space_clustering()`, `hexGreenSpace()`, `gssi()`
-- Green Index and canopy tools: `plot_green_index()`, `chm_analysis()`, `calculate_and_visualize_GVI()`
-- Priority and map visualizations: `plot_priority_bivariate()`, `plot_priority_diamond_bivariate()`, `plot_priority_action_classes()`, `plot_canyon_priority_map()`, `plot_canyon_diamond_bivariate()`, `plot_hybrid_field_map()`, `plot_priority_interactive()`
-- 3D and leaflet outputs: `create_hexmap_3D()`, `create_linestring_3D()`, `plot_priority_3d_explorer()`, `plot_priority_3d_isometric()`, `save_3d_deckgl_dashboard()`, `plot_multilayer_leaflet()`, `save_as_leaflet()`
-- Workflow helpers and app entry points: `save_json()`, `run_app()`
-
 > ✨ *Winner of the **[Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/)** at the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich.*
 
 | Feature | Description |
@@ -67,6 +41,28 @@ Other exported tools are grouped below so they are easier to find:
 | 🖥️ **Shiny Application** | Zero-code web interface for all analytics |
 
 📄 [Published in Ecological Indicators](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X) · [CRAN Package Page](https://CRAN.R-project.org/package=greenR)
+
+## Which Function Should I Use?
+
+Start here if you are new to the package. The three core workflows are:
+
+| Workflow | Use when you want... | Main function |
+|---|---|---|
+| Street greenness | street-level greenness scores from OSM network data | `calculate_green_index()` |
+| SVF analysis | sky-view factor analysis from terrain, buildings, canopy, and ray-casting | `uh_svf()` |
+| Urban heat priority | multi-layer planting-priority analysis, including optional population rasters such as GHSL | `uh_decision()` |
+
+Other exported tools are grouped below so they are easier to find:
+
+| Category | Functions |
+|---|---|
+| Data access and preprocessing | `get_osm_data()`, `convert_to_point()`, `calculate_percentage()` |
+| Green space and accessibility | `accessibility_greenspace()`, `accessibility_mapbox()`, `analyze_green_accessibility()`, `create_accessibility_visualizations()`, `nearest_greenspace()`, `visualize_green_spaces()` |
+| Priority and equity workflows | `analyze_and_visualize_uhi()`, `analyze_green_and_tree_count_density()`, `assess_urban_priority_equity()`, `build_urban_priority_grid()`, `build_urban_block_priority()`, `build_street_canyon_priority()`, `emulate_canyon_microclimate()`, `green_space_clustering()`, `hexGreenSpace()`, `gssi()` |
+| Green index and canopy tools | `plot_green_index()`, `chm_analysis()`, `calculate_and_visualize_GVI()` |
+| Priority and map visualizations | `plot_priority_bivariate()`, `plot_priority_diamond_bivariate()`, `plot_priority_action_classes()`, `plot_canyon_priority_map()`, `plot_canyon_diamond_bivariate()`, `plot_hybrid_field_map()`, `plot_priority_interactive()` |
+| 3D and leaflet outputs | `create_hexmap_3D()`, `create_linestring_3D()`, `plot_priority_3d_explorer()`, `plot_priority_3d_isometric()`, `save_3d_deckgl_dashboard()`, `plot_multilayer_leaflet()`, `save_as_leaflet()` |
+| Workflow helpers and app entry points | `save_json()`, `run_app()` |
 
 ---
 
@@ -471,6 +467,8 @@ results <- uh_decision(
 </details>
 
 ---
+
+If you find `greenR` useful, please consider giving the repository a ★ on GitHub.
 
 # 📊 Classical Urban Analytics
 
