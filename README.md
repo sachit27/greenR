@@ -181,10 +181,15 @@ svf_results <- uh_svf(
 *We have limited budget — where do high thermal exposure and planting opportunities actually intersect?*
 
 <p align="center">
-  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="49%" alt="New Delhi Action Classes" />
-  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="49%" alt="New Delhi Hybrid Priority Field" />
-  <br/>
-  <img src="vignettes/urban_heat1.png" width="60%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
+  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="100%" alt="New Delhi Action Classes" />
+</p>
+
+<p align="center">
+  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="100%" alt="New Delhi Hybrid Priority Field" />
+</p>
+
+<p align="center">
+  <img src="vignettes/urban_heat1.png" width="100%" alt="Zurich Street Canyon Priorities" />
 </p>
 
 <details>
@@ -577,8 +582,11 @@ result$lorenz_plot # Lorenz curve
 *How far does every resident have to walk to reach the nearest green space — and does it vary by direction?*
 
 <p align="center">
-  <img src="vignettes/access.jpg" width="48%" alt="Directional Accessibility" />
-  <img src="vignettes/isochrone.jpg" width="48%" alt="Isochrone Access" />
+  <img src="vignettes/access.jpg" width="80%" alt="Directional Accessibility" />
+</p>
+
+<p align="center">
+  <img src="vignettes/isochrone.jpg" width="80%" alt="Isochrone Access" />
 </p>
 
 <details>
