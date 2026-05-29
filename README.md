@@ -26,7 +26,7 @@
 
 ## Which Function Should I Use?
 
-Use the function that matches your task:
+Start here if you are new to the package:
 
 - `calculate_green_index()` for street-level greenness scores from OSM network data.
 - `uh_svf()` for sky-view factor analysis using terrain, buildings, canopy, and street/grid ray-casting.
@@ -37,6 +37,16 @@ In short:
 - If you want a green street metric, use `calculate_green_index()`.
 - If you want geometry-based visibility and canyon exposure, use `uh_svf()`.
 - If you want a multi-layer priority analysis that can weight population, use `uh_decision()`.
+
+Other exported tools are grouped below so they are easier to find:
+
+- Data access and preprocessing: `get_osm_data()`, `convert_to_point()`, `calculate_percentage()`
+- Green space and accessibility analysis: `accessibility_greenspace()`, `accessibility_mapbox()`, `analyze_green_accessibility()`, `create_accessibility_visualizations()`, `nearest_greenspace()`, `visualize_green_spaces()`
+- Priority and equity workflows: `analyze_and_visualize_uhi()`, `analyze_green_and_tree_count_density()`, `assess_urban_priority_equity()`, `build_urban_priority_grid()`, `build_urban_block_priority()`, `build_street_canyon_priority()`, `emulate_canyon_microclimate()`, `green_space_clustering()`, `hexGreenSpace()`, `gssi()`
+- Green Index and canopy tools: `plot_green_index()`, `chm_analysis()`, `calculate_and_visualize_GVI()`
+- Priority and map visualizations: `plot_priority_bivariate()`, `plot_priority_diamond_bivariate()`, `plot_priority_action_classes()`, `plot_canyon_priority_map()`, `plot_canyon_diamond_bivariate()`, `plot_hybrid_field_map()`, `plot_priority_interactive()`
+- 3D and leaflet outputs: `create_hexmap_3D()`, `create_linestring_3D()`, `plot_priority_3d_explorer()`, `plot_priority_3d_isometric()`, `save_3d_deckgl_dashboard()`, `plot_multilayer_leaflet()`, `save_as_leaflet()`
+- Workflow helpers and app entry points: `save_json()`, `run_app()`
 
 > ✨ *Winner of the **[Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/)** at the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich.*
 
@@ -167,6 +177,8 @@ SVF is modeled geometrically as the fraction of visible sky from a pedestrian pe
 - **SVF distribution analytics** — Statistical distributions, histograms, and summary tables
 - **Interactive Leaflet maps** — Multi-layer toggleable web maps
 
+> **Runtime note:** For larger cities, `uh_svf()` can take a while. Runtime depends on whether terrain and building data must be downloaded online, and on how much ray-casting and map rendering is required for the chosen sample density and outputs. Local inputs reduce download time, but they do not remove the core computation.
+
 ---
 
 ### 🌐 Example 1: Purely Online Mode (Zero local data setup)
@@ -290,6 +302,8 @@ The framework implements physical, pedestrian-scale street canyon priority index
 - **Action class maps** — Top 5% intervention tiers at both block and hexagon scales
 - **3D Deck.gl dashboards** — Extruded neighborhood columns and hexagonal columns
 - **Interactive multilayer Leaflet** — Toggleable overlays of all analysis layers
+
+> **Runtime note:** For larger cities, `uh_decision()` can also take substantial time. Runtime depends on whether data are fetched online and on the cost of the full spatial workflow, including overlays, scoring, and visualizations. Local rasters and vector inputs can reduce download overhead, but the analysis still scales with city extent and resolution.
 
 ### Example 1: Full City (Online Mode)
 Run the complete UHI planting prioritization suite dynamically using purely online spatial data:
