@@ -2,115 +2,119 @@
 % Please edit documentation in R/chm_analysis.R
 \name{chm_analysis}
 \alias{chm_analysis}
-\title{Robust ALS GEDI CHM Analysis and Visualization}
+\title{Canopy Height Model Analysis and Visualization}
 \usage{
 chm_analysis(
   location = NULL,
   bbox = NULL,
   aoi_geojson = NULL,
+  aoi = NULL,
   chm_tif = NULL,
   output_dir = "chm_output",
+  minimal = FALSE,
+  reuse_downloads = TRUE,
   apply_mask = TRUE,
   crop_result = TRUE,
   create_plots = TRUE,
+  create_hex_summary = TRUE,
+  hex_cellsize_m = 100,
+  create_interactive = TRUE,
+  fetch_osm_context = TRUE,
   height_threshold = 2,
+  canopy_thresholds = c(2, 5, 10, 15, 20),
+  tall_canopy_threshold = 10,
+  gap_threshold = 1,
   max_tiles = 100,
-  mapview_html = "chm_mapview.html",
-  tmap_png = "chm_tmap.png",
-  max_cells_mapview = 2e+05,
-  n_cores = parallel::detectCores() - 1,
-  chunk_size = 5,
+  stream_cog = FALSE,
   cache_tiles = TRUE,
+  aggregate_for_heat = FALSE,
+  aggregate_resolution_m = 10,
+  max_cells_plot = 2e+05,
+  max_cells_mapview = 2e+05,
   compression = "LZW",
-  user_agent_string = "R/chm_analysis_script (your_email_or_project_url)",
-  request_timeout = 300
+  request_timeout = 300,
+  user_agent_string = "R/chm_analysis (research-use)",
+  verbose = TRUE
 )
 }
 \arguments{
-\item{location}{Character. Place name for AOI (e.g. "Basel, Switzerland").}
+\item{location}{Character string used to geocode an AOI with Nominatim.}
 
-\item{bbox}{Numeric. Bounding box (xmin, ymin, xmax, ymax, EPSG:4326).}
+\item{bbox}{Numeric vector \code{c(xmin, ymin, xmax, ymax)} in EPSG:4326.}
 
-\item{aoi_geojson}{Path to GeoJSON file defining AOI (overrides location/bbox).}
+\item{aoi_geojson}{Path to a GeoJSON file describing the AOI.}
 
-\item{chm_tif}{Path to a local CHM raster (.tif). If supplied, skips tile download/mosaic.}
+\item{aoi}{An \code{sf} object describing the AOI.}
 
-\item{output_dir}{Output directory for all files.}
+\item{chm_tif}{Optional local canopy height raster to analyze instead of downloading tiles.}
 
-\item{apply_mask}{Mask raster to AOI (default TRUE).}
+\item{output_dir}{Output directory for rasters, plots, and metadata.}
 
-\item{crop_result}{Crop raster to AOI (default TRUE).}
+\item{minimal}{If \code{TRUE}, return only the processed raster and metadata.}
 
-\item{create_plots}{Export static tmap and histogram (default TRUE).}
+\item{reuse_downloads}{If \code{TRUE}, reuse previously processed raster outputs when present.}
 
-\item{height_threshold}{Height (m) for tree coverage (default 2).}
+\item{apply_mask}{If \code{TRUE}, mask the raster to the AOI after cropping.}
 
-\item{max_tiles}{Max CHM tiles to use (default 100).}
+\item{crop_result}{If \code{TRUE}, crop the raster to the AOI extent.}
 
-\item{mapview_html}{Output HTML file for interactive map.}
+\item{create_plots}{If \code{TRUE}, create static plots.}
 
-\item{tmap_png}{Output PNG for publication-quality map.}
+\item{create_hex_summary}{If \code{TRUE}, create the hexagonal summary layer.}
 
-\item{max_cells_mapview}{Maximum number of raster cells in the interactive map (default 1e5).}
+\item{hex_cellsize_m}{Hexagon cell size in meters.}
 
-\item{n_cores}{Parallel cores for download (default: parallel::detectCores() - 1).}
+\item{create_interactive}{If \code{TRUE}, create an interactive leaflet map.}
 
-\item{chunk_size}{Tiles per parallel chunk (default 5).}
+\item{fetch_osm_context}{If \code{TRUE}, fetch optional OSM context layers for plotting.}
 
-\item{cache_tiles}{Cache tiles/AOI (default TRUE).}
+\item{height_threshold}{Height threshold in meters used for tree cover summaries.}
 
-\item{compression}{Compression for output raster ("LZW", etc.).}
+\item{canopy_thresholds}{Numeric vector of canopy height thresholds for sensitivity analysis.}
 
-\item{user_agent_string}{HTTP user agent string (for Nominatim, etc).}
+\item{tall_canopy_threshold}{Threshold in meters used for tall canopy summaries.}
 
-\item{request_timeout}{HTTP timeout in seconds (default 300).}
+\item{gap_threshold}{Threshold in meters used for gap summaries.}
+
+\item{max_tiles}{Maximum number of CHM tiles to process.}
+
+\item{stream_cog}{If \code{TRUE}, stream COG tiles instead of downloading them locally.}
+
+\item{cache_tiles}{If \code{TRUE}, cache tile downloads in \code{output_dir}.}
+
+\item{aggregate_for_heat}{If \code{TRUE}, also create an aggregated raster for downstream heat workflows.}
+
+\item{aggregate_resolution_m}{Resolution in meters for the aggregated raster.}
+
+\item{max_cells_plot}{Maximum number of raster cells used when drawing static plots.}
+
+\item{max_cells_mapview}{Maximum number of raster cells used in the interactive map.}
+
+\item{compression}{GDAL compression option passed to \code{terra::writeRaster()}.}
+
+\item{request_timeout}{Timeout in seconds for geocoding requests.}
+
+\item{user_agent_string}{User agent string used for Nominatim requests.}
+
+\item{verbose}{If \code{TRUE}, print progress messages.}
 }
 \value{
-List with: raster, stats, static_map, mapview_file, plot_hist_file, tmap_file
+A list containing the processed raster, derived statistics, optional hex summary, static plots, optional interactive map, output file paths, selected tiles, and metadata.
 }
 \description{
-\itemize{
-\item \strong{Data Source:} ALS GEDI v6 global canopy height model, Meta & WRI (2024).
-\item \strong{Interactive map is downsampled for browser performance}; see \code{max_cells_mapview}.
-}
-}
-\details{
-End-to-end or single-raster Canopy Height Model (CHM) analysis using
-Meta & WRI's 1m ALS GEDI v6 global dataset. Downloads, mosaics,
-crops, analyzes, and visualizes CHM data for any AOI, or analyzes a
-user-supplied .tif directly. Outputs both publication-quality (tmap)
-and interactive (mapview) maps, with progress/status reporting.
-
-\strong{CRAN policy note:} This function downloads data from the internet if
-\code{location}, \code{bbox}, or \code{aoi_geojson} are specified and the required local files
-are not present. Internet access is not permitted in CRAN checks or
-non-interactive sessions. If you are running in batch, automated, or non-interactive
-mode (including CRAN), you \strong{must} provide all required files locally (e.g., \code{chm_tif}, \code{aoi_geojson}).
+Downloads, crops, analyzes, and visualizes Meta/WRI DINOv3 global canopy
+height data for an AOI, or analyzes a local CHM raster. In minimal mode,
+the function only produces the processed CHM raster and metadata, which is
+useful when called internally by urban_heat_decision_support().
 }
 \examples{
 \dontrun{
-# Example 1: AOI from bounding box (Zurich, Switzerland)
-res_bbox <- chm_analysis(
-  bbox = c(8.51, 47.36, 8.56, 47.40),
-  output_dir = tempdir(), max_tiles = 2, create_plots = TRUE
+res <- chm_analysis(
+  location = "Basel, Switzerland",
+  output_dir = tempfile("chm_"),
+  create_interactive = FALSE
 )
-print(res_bbox$stats)
-
-# Example 2: AOI from location string (Parc La Grange, Geneva)
-res_loc <- chm_analysis(
-  location = "Parc La Grange, Geneva, Switzerland",
-  output_dir = tempdir(), max_tiles = 2
-)
-print(res_loc$stats)
-
-# Example 3: Analyze a user-supplied CHM raster
-# Assume you have a file "my_canopy.tif" (projected or WGS84)
-res_tif <- chm_analysis(
-  chm_tif = "my_canopy.tif",
-  output_dir = tempdir(),
-  create_plots = TRUE,
-  height_threshold = 3
-)
-print(res_tif$stats)
+names(res$plots)
 }
+
 }

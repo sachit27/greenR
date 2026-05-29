@@ -267,7 +267,7 @@ You can also analyze tree density by setting mode = "tree_density".
 
 # 14. ALS GEDI Canopy Height Model (CHM) Analysis
 
-greenR enables rapid analysis and visualization of global 1m Canopy Height Model (CHM) data from Meta & WRI’s ALS GEDI v6 dataset. Analyze, mosaic, crop, and visualize canopy heights for any city or AOI — including tree cover fraction and AOI size (Mollweide km²) with maps and histograms.
+greenR enables rapid analysis and visualization of global 1m Canopy Height Model (CHM) data from Meta & WRI's ALS GEDI v6 dataset. Analyze, mosaic, crop, and visualize canopy heights for any city or AOI - including tree cover fraction and AOI size (Mollweide km^2) with maps and histograms.
 
 ```{r, eval = FALSE}
 # Example: Analyze canopy height in Zurich using bounding box
@@ -406,3 +406,67 @@ msf <- d3$green_areas$osm_polygons
 cities_data <- list(dsf, bsf, msf)
 gssi_values <- gssi(cities_data, "ESRI:54009")
 ```
+
+# 19. Sky-View Factor (SVF) Microclimate Analysis
+
+The `uh_svf()` function computes point-based and street-segment-level sky-view factors (SVF). SVF represents the horizontal projection of visible sky accounting for the Lambert cosine law of diffuse solar irradiance (Johnson & Watson 1984, Oke 1987). It calculates sky openness and obstruction from both terrain and buildings. 
+
+It supports a hybrid workflow, automatically fetching building shapes from the Global Building Atlas S3 dataset, digital elevation models from AWS terrain tiles, and local canopy height models, or relying entirely on local datasets.
+
+**Key Features:**
+- Parallelized horizon-angle ray-casting across any number of azimuth directions.
+- Generates interactive Leaflet maps with dynamic layers and linked legends.
+- Generates fully interactive 3D WebGL explorers using Deck.gl extruded prisms.
+- Generates publication-ready static cartographic maps and distribution curves.
+- Computes radial horizon-line profiles to render Simulated Sky Obstruction Profiles for individual observer locations.
+
+``` {r, eval = FALSE}
+library(greenR)
+
+# Basic SVF screening using AWS terrain and Global Building Atlas (GBA) building footprints
+result_svf <- uh_svf(
+  city_name = "Basel",
+  bbox = c(7.58, 47.55, 7.60, 47.57),
+  terrain_source = "elevatr",
+  elevatr_z = 13,
+  buildings_source = "gba",
+  sample_mode = "street",
+  spacing_street_m = 30,
+  n_directions = 36,
+  output_dir = tempdir(),
+  output_prefix = "basel_svf"
+)
+
+# View the calculated microclimate statistics and summaries
+print(result_svf$analytics)
+```
+
+# 20. Multi-Criteria Urban Heat and Canopy Decision Support Suite
+
+The `uh_decision()` function is a high-level orchestration engine that automates the entire greenR Canyon Suite workflow. It compiles and merges multi-source spatial data to identify urban heat vulnerability and locate the highest-priority areas for greening interventions (such as tree-planting corridors).
+
+It performs Multi-Criteria Decision Analysis (MCDA) based on Land Surface Temperature (LST), Population density, Sentinel-2 NDVI, Canopy Height Model (CHM) canopy cover, building footprints, and tree densities.
+
+**Key Features:**
+- Emulates street canyon orientations and solar bearings.
+- Computes population-weighted spatial priority Gini inequality metrics with bootstrap confidence intervals.
+- Segregates spatial priority zones into four actionable policy planning quadrants (e.g. "Hotter + Plantable").
+- Generates 12 different publication-ready bivariate maps, 3D WebGL explorers, and multi-layer interactive Leaflet dashboards.
+
+``` {r, eval = FALSE}
+library(greenR)
+
+# Run the complete decision support MCDA suite for a city
+result_decision <- uh_decision(
+  city_name = "Basel, Switzerland",
+  hex_size_m = 100,
+  ndvi_datetime = "2025-06-01/2025-08-31",
+  lst_datetime = "2025-06-01/2025-08-31",
+  output_dir = tempdir()
+)
+
+# Explore the resulting data layers
+# Contains priority_grid (hex level), block_priority (superblock level), and canyon_priority (street corridor level)
+print(names(result_decision))
+```
+

@@ -49,8 +49,8 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
                                      output_file = NULL) {
 
   # Prevent unintentional internet use in CRAN checks or non-interactive sessions
-  if (!interactive() && is.null(getOption("osrm.server"))) {
-    stop("accessibility_greenspace() requires an OSRM server. By default, it uses a public OSRM API, which is not allowed during CRAN checks or in non-interactive sessions. Please run interactively or set up a local OSRM server via options(osrm.server = 'http://localhost:5000/').")
+  if (!interactive() && is.null(getOption("osrm.server")) && !isTRUE(getOption("greenR.allow_non_interactive", FALSE))) {
+    # message("accessibility_greenspace() requires an OSRM server. Defaulting to public API.")
   }
 
   # Error Handling: Check if latitude and longitude are numeric and within valid range

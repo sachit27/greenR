@@ -1,4 +1,14 @@
 .Rproj.user
+.DS_Store
+.Rhistory
+.RData
+.Ruserdata
+greenR.Rcheck/
+*.tar.gz
+vignettes/introduction.R
+src/*.o
+src/*.so
+src/*.dll
 medellin.html
 /doc/
 /Meta/

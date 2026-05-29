@@ -1,6 +1,6 @@
 Package: greenR
 Title: Green Index Quantification, Analysis and Visualization
-Version: 0.0.1.6
+Version: 0.0.1.7
 Authors@R:
     person("Sachit", "Mahajan", , "sachitmahajan90@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9558-8895"))
@@ -9,53 +9,63 @@ License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.1.0)
 Imports: 
-    DT,
-    httr,
-    magrittr,
-    dplyr,
-    ggplot2,
-    sf,
-    htmltools,
-    leaflet,
-    osmdata,
-    shiny,
-    tibble,
-    SuperpixelImageSegmentation,
-    OpenImageR,
-    osrm,         
-    spatstat.geom,
-    stats,
-    units,
-    duckdb,
-    DBI,
-    data.table,
-    RColorBrewer,
-    htmlwidgets,
-    viridisLite,
-    rstudioapi,
-    jsonlite,
-    tmap,
-    mapview,
-    terra,
-    curl,
-    parallel,
-    igraph,
-    purrr,
-    sfnetworks,
-    patchwork,
-    h3jsr,
+    arrow,
     classInt,
-    moments,
+    cowplot,
+    curl,
+    data.table,
+    DBI,
+    dplyr,
+    DT,
+    duckdb,
+    elevatr,
+    exactextractr,
+    ggplot2,
+    ggspatial,
+    h3jsr,
+    htmltools,
+    htmlwidgets,
+    httr,
+    igraph,
     ineq,
+    jsonlite,
+    leaflet,
+    leaflet.extras,
+    magrittr,
+    maptiles,
+    moments,
+    OpenImageR,
+    osmdata,
+    osrm,
+    parallel,
+    patchwork,
+    plotly,
     progress,
-    viridis,
+    purrr,
+    RColorBrewer,
+    Rcpp,
     rstac,
+    rstudioapi,
+    scales,
+    sf,
+    sfnetworks,
+    shiny,
+    spatstat.geom,
     spdep,
-    scales
+    stats,
+    SuperpixelImageSegmentation,
+    terra,
+    tibble,
+    tidyterra,
+    units,
+    viridisLite
 Suggests:
     knitr,
-    rmarkdown,
-    exactextractr
+    rmarkdown
 VignetteBuilder:
     knitr
+LinkingTo: 
+    Rcpp

@@ -6,9 +6,18 @@
 \usage{
 get_osm_data(
   bbox,
-  server_url = "https://nominatim.openstreetmap.org/search",
+  server_url = "https://nominatim.openstreetmap.org",
   username = NULL,
-  password = NULL
+  password = NULL,
+  cache = FALSE,
+  cache_dir = file.path(tempdir(), "greenR_osm_cache"),
+  timeout = 180,
+  include_highways = TRUE,
+  include_green_areas = TRUE,
+  include_trees = TRUE,
+  include_water = TRUE,
+  include_buildings = FALSE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -16,26 +25,37 @@ get_osm_data(
 a numeric vector of length 4 representing the bounding box coordinates
 in the order: c(left, bottom, right, top).}
 
-\item{server_url}{Optional string representing an alternative Nominatim server URL.}
+\item{server_url}{Nominatim base URL. Default: \code{"https://nominatim.openstreetmap.org"}.}
 
-\item{username}{Optional string for username if authentication is required for the server.}
+\item{username}{Ignored.}
 
-\item{password}{Optional string for password if authentication is required for the server.}
+\item{password}{Ignored.}
+
+\item{cache}{Logical. If TRUE, cache results on disk and reuse them for the same input. Defaults to \code{FALSE} to ensure fresh data is always fetched. Set to \code{TRUE} to enable caching during rapid development or testing cycles to avoid Overpass API rate-limiting blocks.}
+
+\item{cache_dir}{Character. Directory used for disk cache.}
+
+\item{timeout}{Numeric. Overpass query timeout in seconds.}
+
+\item{include_highways}{Logical. If TRUE, fetch highway features.}
+
+\item{include_green_areas}{Logical. If TRUE, fetch green area polygons.}
+
+\item{include_trees}{Logical. If TRUE, fetch tree points.}
+
+\item{include_water}{Logical. If TRUE, fetch water bodies.}
+
+\item{include_buildings}{Logical. If TRUE, fetch building footprints.}
+
+\item{verbose}{Logical. Print progress messages. Default TRUE.}
 }
 \value{
-A list containing:
-\item{highways}{An sf object with the OSM data about highways in the specified location.}
-\item{green_areas}{A list with an sf object of green area polygons.}
-\item{trees}{An sf object with the OSM data about trees in the specified location.}
+A list containing sf objects.
 }
 \description{
 Downloads OpenStreetMap (OSM) data for a specified location or bounding box.
-Includes highways, green areas, and trees for the specified location.
-}
-\details{
-\strong{Note:} This function requires an internet connection and must be run interactively.
-It performs HTTP requests to external APIs (Nominatim and Overpass via \code{osmdata}).
-On CRAN and in non-interactive sessions, this function will error.
+Includes highways, green areas, trees, and water bodies for the specified
+location.
 }
 \examples{
 \dontrun{

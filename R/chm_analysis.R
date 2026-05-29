@@ -1,332 +1,1149 @@
-#' Robust ALS GEDI CHM Analysis and Visualization
+# ==============================================================================
+# chm_analysis.R
+# Meta/WRI DINOv3 global CHM analysis and visualization
+# ==============================================================================
+
+utils::globalVariables(c(
+  "height", "height_capped", "mean_chm", "max_chm", "tree_cover_pct",
+  "tall_canopy_pct", "gap_pct", "canopy_volume_proxy", "geometry", "grid_id",
+  "threshold_m", "cover_pct", "area_km2", "canopy_type"
+))
+
+`%||%` <- function(a, b) {
+  if (!is.null(a) && length(a) > 0) a else b
+}
+
+# ------------------------------------------------------------------------------
+# Package and utility helpers
+# ------------------------------------------------------------------------------
+
+.chm_check_packages <- function() {
+  required <- c("sf", "terra", "httr", "curl", "ggplot2", "viridisLite")
+  miss <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(miss) > 0) {
+    stop(
+      "Please install missing packages:\n  install.packages(c(\"",
+      paste(miss, collapse = "\", \""),
+      "\"))",
+      call. = FALSE
+    )
+  }
+
+  list(
+    exactextractr = requireNamespace("exactextractr", quietly = TRUE),
+    leaflet = requireNamespace("leaflet", quietly = TRUE),
+    htmlwidgets = requireNamespace("htmlwidgets", quietly = TRUE)
+  )
+}
+
+.chm_set_gdal_env <- function() {
+  old <- Sys.getenv(c(
+    "GDAL_DISABLE_READDIR_ON_OPEN",
+    "CPL_VSIL_CURL_ALLOWED_EXTENSIONS",
+    "VSI_CACHE",
+    "VSI_CACHE_SIZE",
+    "GDAL_HTTP_MULTIRANGE",
+    "GDAL_HTTP_VERSION"
+  ), unset = NA)
+
+  Sys.setenv(
+    GDAL_DISABLE_READDIR_ON_OPEN = "YES",
+    CPL_VSIL_CURL_ALLOWED_EXTENSIONS = ".tif,.TIF,.tiff,.TIFF,.vrt,.VRT",
+    VSI_CACHE = "TRUE",
+    VSI_CACHE_SIZE = "500000000",
+    GDAL_HTTP_MULTIRANGE = "YES",
+    GDAL_HTTP_VERSION = "2"
+  )
+
+  invisible(old)
+}
+
+.chm_msg <- function(..., verbose = TRUE) {
+  if (isTRUE(verbose)) message(...)
+}
+
+.chm_safe_make_valid <- function(x) {
+  if (is.null(x) || !inherits(x, "sf") || nrow(x) == 0) return(x)
+  x <- tryCatch(sf::st_make_valid(x), error = function(e) x)
+  x <- tryCatch(suppressWarnings(sf::st_collection_extract(x, "POLYGON")), error = function(e) x)
+  x
+}
+
+.chm_safe_rbind_sf <- function(x, y) {
+  if (is.null(x) || !inherits(x, "sf") || nrow(x) == 0) return(y)
+  if (is.null(y) || !inherits(y, "sf") || nrow(y) == 0) return(x)
+
+  x <- sf::st_transform(x, 4326)
+  y <- sf::st_transform(y, 4326)
+
+  x_geom <- sf::st_geometry(x)
+  y_geom <- sf::st_geometry(y)
+  x_df <- sf::st_drop_geometry(x)
+  y_df <- sf::st_drop_geometry(y)
+
+  cols <- union(names(x_df), names(y_df))
+  for (nm in setdiff(cols, names(x_df))) x_df[[nm]] <- NA
+  for (nm in setdiff(cols, names(y_df))) y_df[[nm]] <- NA
+
+  out <- rbind(x_df[, cols, drop = FALSE], y_df[, cols, drop = FALSE])
+  out$geometry <- c(x_geom, y_geom)
+  sf::st_as_sf(out, sf_column_name = "geometry", crs = 4326)
+}
+
+.chm_resolve_aoi <- function(
+    location = NULL,
+    bbox = NULL,
+    aoi_geojson = NULL,
+    aoi = NULL,
+    user_agent_string = "R/chm_analysis (research-use)",
+    request_timeout = 60,
+    verbose = TRUE
+) {
+  if (inherits(aoi, "sf")) {
+    .chm_msg("  Using user-supplied sf AOI.", verbose = verbose)
+    out <- sf::st_transform(aoi, 4326)
+    out <- .chm_safe_make_valid(out)
+    out <- sf::st_as_sf(sf::st_union(out))
+    sf::st_crs(out) <- 4326
+    return(list(aoi_wgs = out, label = "user-supplied sf AOI"))
+  }
+
+  if (!is.null(aoi_geojson) && file.exists(aoi_geojson)) {
+    .chm_msg("  Using AOI file: ", aoi_geojson, verbose = verbose)
+    out <- sf::st_read(aoi_geojson, quiet = TRUE)
+    out <- sf::st_transform(out, 4326)
+    out <- .chm_safe_make_valid(out)
+    out <- sf::st_as_sf(sf::st_union(out))
+    sf::st_crs(out) <- 4326
+    return(list(aoi_wgs = out, label = basename(aoi_geojson)))
+  }
+
+  if (!is.null(bbox)) {
+    if (!is.numeric(bbox) || length(bbox) != 4) {
+      stop("bbox must be numeric c(xmin, ymin, xmax, ymax) in EPSG:4326.", call. = FALSE)
+    }
+    .chm_msg("  Using bbox AOI.", verbose = verbose)
+    bb <- sf::st_bbox(
+      c(xmin = bbox[1], ymin = bbox[2], xmax = bbox[3], ymax = bbox[4]),
+      crs = sf::st_crs(4326)
+    )
+    out <- sf::st_as_sf(sf::st_as_sfc(bb))
+    return(list(aoi_wgs = out, label = sprintf("bbox_%.4f_%.4f_%.4f_%.4f", bbox[1], bbox[2], bbox[3], bbox[4])))
+  }
+
+  if (!is.null(location)) {
+    if (!is.character(location) || length(location) != 1) {
+      stop("location must be a single character string.", call. = FALSE)
+    }
+
+    .chm_msg("  Geocoding location with Nominatim: ", location, verbose = verbose)
+    resp <- httr::GET(
+      "https://nominatim.openstreetmap.org/search",
+      query = list(q = location, format = "geojson", polygon_geojson = 1, limit = 1),
+      httr::user_agent(user_agent_string),
+      httr::timeout(request_timeout)
+    )
+
+    if (httr::status_code(resp) >= 300) {
+      stop("Nominatim geocoding failed for: ", location, call. = FALSE)
+    }
+
+    tf <- tempfile(fileext = ".geojson")
+    writeLines(httr::content(resp, as = "text", encoding = "UTF-8"), tf)
+    out <- sf::st_read(tf, quiet = TRUE)
+    unlink(tf)
+
+    if (nrow(out) == 0) stop("No AOI returned for location: ", location, call. = FALSE)
+    out <- out[1, ]
+    out <- sf::st_transform(out, 4326)
+    out <- .chm_safe_make_valid(out)
+    out <- sf::st_as_sf(sf::st_union(out))
+    sf::st_crs(out) <- 4326
+    return(list(aoi_wgs = out, label = location))
+  }
+
+  NULL
+}
+
+.chm_get_osm_context <- function(aoi_wgs, verbose = TRUE) {
+  if (is.null(aoi_wgs)) return(NULL)
+
+  bb <- sf::st_bbox(aoi_wgs)
+  bbox_vec <- c(
+    left = unname(bb["xmin"]),
+    bottom = unname(bb["ymin"]),
+    right = unname(bb["xmax"]),
+    top = unname(bb["ymax"])
+  )
+
+  if (exists("get_osm_data", mode = "function")) {
+    return(tryCatch(
+      get_osm_data(
+        bbox_vec,
+        include_highways = TRUE,
+        include_green_areas = TRUE,
+        include_trees = TRUE,
+        include_water = TRUE,
+        cache = TRUE,
+        verbose = FALSE
+      ),
+      error = function(e) {
+        .chm_msg("  [i] get_osm_data() context skipped: ", e$message, verbose = verbose)
+        NULL
+      }
+    ))
+  }
+
+  .chm_msg("  [i] get_osm_data() not found; context layers skipped.", verbose = verbose)
+  NULL
+}
+
+.chm_prepare_context_layers <- function(osm_context) {
+  prep <- function(x) {
+    if (is.null(x) || !inherits(x, "sf") || nrow(x) == 0) return(NULL)
+    x <- tryCatch(sf::st_make_valid(x), error = function(e) x)
+    tryCatch(sf::st_transform(x, 4326), error = function(e) NULL)
+  }
+
+  if (is.null(osm_context)) {
+    return(list(roads = NULL, green = NULL, water = NULL, trees = NULL))
+  }
+
+  roads <- prep(osm_context$highways$osm_lines %||% NULL)
+  green <- prep(osm_context$green_areas$osm_polygons %||% NULL)
+  trees <- prep(osm_context$trees$osm_points %||% NULL)
+
+  water_poly <- osm_context$water$osm_polygons %||% NULL
+  water_mpoly <- osm_context$water$osm_multipolygons %||% NULL
+  water <- NULL
+  if (!is.null(water_poly) && !is.null(water_mpoly)) {
+    water_mpoly <- suppressWarnings(sf::st_cast(water_mpoly, "POLYGON", warn = FALSE))
+    water <- .chm_safe_rbind_sf(water_poly, water_mpoly)
+  } else {
+    water <- water_poly %||% water_mpoly
+  }
+  water <- prep(water)
+
+  list(roads = roads, green = green, water = water, trees = trees)
+}
+
+.chm_validate_raster <- function(path_or_vsi) {
+  tryCatch({
+    r <- terra::rast(path_or_vsi)
+    terra::ncell(r) > 0
+  }, error = function(e) FALSE)
+}
+
+.chm_downsample_raster <- function(r, max_cells = 2e5, fun = "mean") {
+  if (terra::ncell(r) <= max_cells) return(r)
+  fact <- ceiling(sqrt(terra::ncell(r) / max_cells))
+  terra::aggregate(r, fact = fact, fun = fun, na.rm = TRUE)
+}
+
+.chm_extract_mean <- function(r, p, exactextract_available = FALSE) {
+  if (isTRUE(exactextract_available)) {
+    exactextractr::exact_extract(r, p, fun = "mean", progress = FALSE)
+  } else {
+    terra::extract(r, terra::vect(p), fun = mean, na.rm = TRUE)[, 2]
+  }
+}
+
+.chm_extract_max <- function(r, p, exactextract_available = FALSE) {
+  if (isTRUE(exactextract_available)) {
+    exactextractr::exact_extract(r, p, fun = "max", progress = FALSE)
+  } else {
+    terra::extract(r, terra::vect(p), fun = max, na.rm = TRUE)[, 2]
+  }
+}
+
+.chm_make_hex_summary <- function(
+    chm,
+    aoi_wgs,
+    hex_cellsize_m = 100,
+    height_threshold = 2,
+    tall_canopy_threshold = 10,
+    gap_threshold = 1,
+    exactextract_available = FALSE
+) {
+  if (is.null(aoi_wgs)) return(NULL)
+
+  aoi_r <- sf::st_transform(aoi_wgs, terra::crs(chm))
+  grid <- sf::st_make_grid(aoi_r, cellsize = hex_cellsize_m, square = FALSE)
+  grid <- sf::st_as_sf(data.frame(grid_id = seq_along(grid), geometry = grid))
+  sf::st_crs(grid) <- sf::st_crs(aoi_r)
+  suppressWarnings(grid <- sf::st_intersection(grid, aoi_r))
+  grid <- .chm_safe_make_valid(grid)
+  grid$grid_id <- seq_len(nrow(grid))
+  grid$area_km2 <- as.numeric(sf::st_area(grid)) / 1e6
+
+  grid$mean_chm <- .chm_extract_mean(chm, grid, exactextract_available)
+  grid$max_chm <- .chm_extract_max(chm, grid, exactextract_available)
+
+  tree_mask <- chm >= height_threshold
+  tall_mask <- chm >= tall_canopy_threshold
+  gap_mask <- chm <= gap_threshold
+  chm_excess <- chm - height_threshold
+  volume_proxy <- terra::ifel(chm_excess < 0, 0, chm_excess)
+
+  grid$tree_cover_pct <- .chm_extract_mean(tree_mask, grid, exactextract_available) * 100
+  grid$tall_canopy_pct <- .chm_extract_mean(tall_mask, grid, exactextract_available) * 100
+  grid$gap_pct <- .chm_extract_mean(gap_mask, grid, exactextract_available) * 100
+  grid$canopy_volume_proxy <- .chm_extract_mean(volume_proxy, grid, exactextract_available)
+
+  sf::st_transform(grid, 4326)
+}
+
+.chm_canopy_classes <- function(chm, gap_threshold = 1, height_threshold = 2, tall_canopy_threshold = 10) {
+  terra::app(chm, function(x) {
+    out <- rep(NA_real_, length(x))
+    out[x >= 0 & x < gap_threshold] <- 0
+    out[x >= gap_threshold & x < height_threshold] <- 1
+    out[x >= height_threshold & x < tall_canopy_threshold] <- 2
+    out[x >= tall_canopy_threshold & x < 20] <- 3
+    out[x >= 20] <- 4
+    out
+  })
+}
+
+# ------------------------------------------------------------------------------
+# Plot helpers
+# ------------------------------------------------------------------------------
+
+.chm_map_theme <- function() {
+  ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      plot.background = ggplot2::element_rect(fill = "white", color = NA),
+      panel.background = ggplot2::element_rect(fill = "white", color = NA),
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      axis.title = ggplot2::element_blank(),
+      axis.text = ggplot2::element_text(size = 10, color = "#9A9A9A"),
+      axis.ticks = ggplot2::element_line(color = "#B8B8B8", linewidth = 0.25),
+      panel.border = ggplot2::element_rect(color = "#D8D8D8", fill = NA, linewidth = 0.4),
+      legend.position = "right",
+      plot.title = ggplot2::element_text(face = "bold", size = 16, margin = ggplot2::margin(b = 4)),
+      plot.subtitle = ggplot2::element_text(size = 10, color = "#555555", margin = ggplot2::margin(b = 8)),
+      plot.caption = ggplot2::element_text(size = 8, color = "#666666", hjust = 0)
+    )
+}
+
+.chm_plot_cartographic_map <- function(chm, aoi_wgs, context, location_label, max_cells_plot = 2e5) {
+  if (is.null(aoi_wgs)) return(NULL)
+  r <- .chm_downsample_raster(chm, max_cells = max_cells_plot)
+  r_wgs <- terra::project(r, "EPSG:4326")
+  df <- terra::as.data.frame(r_wgs, xy = TRUE, na.rm = TRUE)
+  names(df) <- c("x", "y", "height")
+  if (nrow(df) == 0) return(NULL)
+
+  height_cap <- as.numeric(stats::quantile(df$height, 0.98, na.rm = TRUE))
+  df$height_capped <- pmin(df$height, height_cap)
+
+  p <- ggplot2::ggplot() + .chm_map_theme()
+
+  if (!is.null(context$green)) {
+    p <- p + ggplot2::geom_sf(data = context$green, fill = "#E8F1E4", color = NA, alpha = 0.70)
+  }
+  if (!is.null(context$water)) {
+    p <- p + ggplot2::geom_sf(data = context$water, fill = "#DCEAF2", color = NA, alpha = 0.90)
+  }
+  if (!is.null(context$roads)) {
+    p <- p + ggplot2::geom_sf(data = context$roads, color = "#CFCFCF", linewidth = 0.13, alpha = 0.65)
+  }
+
+  p +
+    ggplot2::geom_raster(data = df, ggplot2::aes(x = x, y = y, fill = height_capped), alpha = 0.82) +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#F7FCF5", "#C7E9C0", "#74C476", "#238B45", "#00441B"),
+      limits = c(0, height_cap),
+      name = "Canopy\nheight (m)",
+      na.value = "transparent"
+    ) +
+    ggplot2::geom_sf(data = aoi_wgs, fill = NA, color = "#222222", linewidth = 0.35) +
+    ggplot2::coord_sf(expand = FALSE) +
+    ggplot2::labs(
+      title = "Canopy Height Structure",
+      subtitle = location_label %||% "Selected study area",
+      caption = "Data: Meta/WRI DINOv3 global CHM. Contextual features from OpenStreetMap when available. Heights capped at 98th percentile for readability."
+    )
+}
+
+.chm_plot_raster_map <- function(chm, location_label, max_cells_plot = 2e5) {
+  r <- .chm_downsample_raster(chm, max_cells = max_cells_plot)
+  r_wgs <- terra::project(r, "EPSG:4326")
+  df <- terra::as.data.frame(r_wgs, xy = TRUE, na.rm = TRUE)
+  names(df) <- c("x", "y", "height")
+  if (nrow(df) == 0) return(NULL)
+
+  height_cap <- as.numeric(stats::quantile(df$height, 0.98, na.rm = TRUE))
+  df$height_capped <- pmin(df$height, height_cap)
+
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, fill = height_capped)) +
+    ggplot2::geom_raster() +
+    ggplot2::coord_equal() +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#F7FCF5", "#C7E9C0", "#74C476", "#238B45", "#00441B"),
+      limits = c(0, height_cap),
+      name = "Height (m)",
+      na.value = "transparent"
+    ) +
+    ggplot2::labs(
+      title = "CHM Analytical Raster",
+      subtitle = location_label %||% "Downsampled for plotting only",
+      x = NULL,
+      y = NULL
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      panel.grid = ggplot2::element_blank(),
+      axis.text = ggplot2::element_blank(),
+      axis.title = ggplot2::element_blank(),
+      plot.title = ggplot2::element_text(face = "bold")
+    )
+}
+
+.chm_plot_histogram <- function(values, height_threshold, tall_canopy_threshold) {
+  d <- data.frame(height = values[is.finite(values)])
+  if (nrow(d) == 0) return(NULL)
+
+  ggplot2::ggplot(d, ggplot2::aes(x = height)) +
+    ggplot2::geom_histogram(
+      ggplot2::aes(y = ggplot2::after_stat(count / sum(count))),
+      binwidth = 1,
+      fill = "#74C476",
+      color = "white"
+    ) +
+    ggplot2::geom_vline(xintercept = height_threshold, linetype = "dashed", linewidth = 0.7) +
+    ggplot2::geom_vline(xintercept = tall_canopy_threshold, linetype = "dotted", linewidth = 0.8) +
+    ggplot2::labs(
+      title = "Canopy Height Distribution",
+      subtitle = paste0("Dashed = tree threshold (", height_threshold, " m); dotted = tall canopy (", tall_canopy_threshold, " m)"),
+      x = "Canopy height (m)",
+      y = "Fraction of valid CHM pixels"
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
+}
+
+.chm_plot_threshold_curve <- function(threshold_stats) {
+  if (is.null(threshold_stats) || nrow(threshold_stats) == 0) return(NULL)
+
+  ggplot2::ggplot(threshold_stats, ggplot2::aes(x = threshold_m, y = cover_pct)) +
+    ggplot2::geom_area(alpha = 0.18, fill = "#74C476") +
+    ggplot2::geom_line(linewidth = 1.1, color = "#238B45") +
+    ggplot2::geom_point(size = 2.2, color = "#00441B") +
+    ggplot2::scale_y_continuous(labels = function(x) paste0(round(x), "%")) +
+    ggplot2::labs(
+      title = "Canopy Cover Sensitivity to Height Threshold",
+      subtitle = "Different thresholds answer different ecological and planning questions.",
+      x = "Height threshold (m)",
+      y = "Area above threshold"
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
+}
+
+.chm_plot_hex_map <- function(hex_summary, value_col, title, subtitle, legend_title, context = NULL, aoi_wgs = NULL) {
+  if (is.null(hex_summary) || !value_col %in% names(hex_summary)) return(NULL)
+
+  hex_3857 <- sf::st_transform(hex_summary, 3857)
+  aoi_3857 <- if (!is.null(aoi_wgs)) sf::st_transform(aoi_wgs, 3857) else NULL
+
+  p <- ggplot2::ggplot() + .chm_map_theme()
+  if (!is.null(aoi_3857) && requireNamespace("ggspatial", quietly = TRUE)) {
+    p <- tryCatch(
+      p + ggspatial::annotation_map_tile(
+        type = "cartolight",
+        zoom = NULL,
+        data = aoi_3857,
+        progress = "none",
+        quiet = TRUE
+      ),
+      error = function(e) p
+    )
+  }
+
+  outline_layer <- if (!is.null(aoi_3857)) {
+    ggplot2::geom_sf(data = aoi_3857, fill = NA, color = "#26354A", linewidth = 0.85, lineend = "round")
+  } else {
+    NULL
+  }
+
+  p +
+    ggplot2::geom_sf(data = hex_3857, ggplot2::aes(fill = .data[[value_col]]), color = NA, alpha = 0.92) +
+    ggplot2::scale_fill_gradientn(
+      colours = c("#F7FCF5", "#C7E9C0", "#74C476", "#238B45", "#00441B"),
+      name = legend_title,
+      na.value = "transparent"
+    ) +
+    outline_layer +
+    ggspatial::annotation_scale(
+      location = "bl",
+      plot_unit = "m",
+      width_hint = 0.18,
+      line_width = 0.5,
+      text_cex = 0.8,
+      pad_x = grid::unit(0.6, "cm"),
+      pad_y = grid::unit(0.6, "cm")
+    ) +
+    ggplot2::coord_sf(crs = 3857, expand = FALSE, datum = sf::st_crs(3857)) +
+    ggplot2::labs(title = title, subtitle = subtitle)
+}
+
+.chm_plot_typology <- function(hex_summary) {
+  if (is.null(hex_summary) || !all(c("tree_cover_pct", "mean_chm") %in% names(hex_summary))) return(NULL)
+
+  d <- sf::st_drop_geometry(hex_summary)
+  if (nrow(d) == 0) return(NULL)
+
+  med_cover <- stats::median(d$tree_cover_pct, na.rm = TRUE)
+  med_height <- stats::median(d$mean_chm, na.rm = TRUE)
+
+  d$canopy_type <- dplyr::case_when(
+    d$tree_cover_pct >= med_cover & d$mean_chm >= med_height ~ "Dense + tall canopy",
+    d$tree_cover_pct >= med_cover & d$mean_chm < med_height ~ "Dense + low canopy",
+    d$tree_cover_pct < med_cover & d$mean_chm >= med_height ~ "Sparse + tall patches",
+    TRUE ~ "Sparse + low canopy"
+  )
+
+  ggplot2::ggplot(d, ggplot2::aes(x = tree_cover_pct, y = mean_chm, color = canopy_type)) +
+    ggplot2::geom_vline(xintercept = med_cover, linetype = "dashed", color = "#777777") +
+    ggplot2::geom_hline(yintercept = med_height, linetype = "dashed", color = "#777777") +
+    ggplot2::geom_point(alpha = 0.70, size = 2) +
+    ggplot2::labs(
+      title = "Canopy Structure Typology",
+      subtitle = "Each point is one hexagon; dashed lines show median values.",
+      x = "Tree cover (%)",
+      y = "Mean canopy height (m)",
+      color = NULL
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"), legend.position = "bottom")
+}
+
+.chm_make_leaflet <- function(chm, aoi_wgs, hex_summary = NULL, output_file = NULL, max_cells_mapview = 2e5) {
+  if (!requireNamespace("leaflet", quietly = TRUE) || !requireNamespace("htmlwidgets", quietly = TRUE)) return(NULL)
+  if (is.null(aoi_wgs)) return(NULL)
+
+  web_r <- .chm_downsample_raster(chm, max_cells = max_cells_mapview)
+  web_r <- terra::project(web_r, "EPSG:4326")
+  vals <- terra::values(web_r, mat = FALSE)
+  vals <- vals[is.finite(vals)]
+  if (length(vals) == 0) return(NULL)
+
+  pal <- leaflet::colorNumeric(
+    palette = viridisLite::viridis(100),
+    domain = vals,
+    na.color = "transparent"
+  )
+
+  m <- leaflet::leaflet() |>
+    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Light") |>
+    leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark") |>
+    leaflet::addRasterImage(web_r, colors = pal, opacity = 0.78, group = "Canopy height") |>
+    leaflet::addLegend(pal = pal, values = vals, title = "Canopy height (m)", group = "Canopy height") |>
+    leaflet::addPolygons(data = aoi_wgs, fill = FALSE, color = "black", weight = 2, group = "AOI")
+
+  if (!is.null(hex_summary)) {
+    hex_pal <- leaflet::colorNumeric(
+      palette = viridisLite::viridis(100),
+      domain = hex_summary$mean_chm,
+      na.color = "transparent"
+    )
+
+    m <- m |>
+      leaflet::addPolygons(
+        data = hex_summary,
+        fillColor = ~hex_pal(mean_chm),
+        fillOpacity = 0.55,
+        color = "#333333",
+        weight = 0.25,
+        group = "Hex mean CHM",
+        popup = ~paste0(
+          "<b>Grid ID:</b> ", grid_id, "<br>",
+          "<b>Mean CHM:</b> ", round(mean_chm, 2), " m<br>",
+          "<b>Max CHM:</b> ", round(max_chm, 2), " m<br>",
+          "<b>Tree cover:</b> ", round(tree_cover_pct, 1), "%<br>",
+          "<b>Tall canopy:</b> ", round(tall_canopy_pct, 1), "%<br>",
+          "<b>Gap:</b> ", round(gap_pct, 1), "%<br>",
+          "<b>Volume proxy:</b> ", round(canopy_volume_proxy, 2)
+        )
+      )
+  }
+
+  m <- m |>
+    leaflet::addLayersControl(
+      baseGroups = c("Light", "Dark"),
+      overlayGroups = c("Canopy height", "Hex mean CHM", "AOI"),
+      options = leaflet::layersControlOptions(collapsed = FALSE)
+    )
+
+  if (!is.null(output_file)) {
+    htmlwidgets::saveWidget(m, output_file, selfcontained = TRUE)
+  }
+
+  m
+}
+
+# ==============================================================================
+# Main function
+# ==============================================================================
+
+#' Canopy Height Model Analysis and Visualization
 #'
-#' End-to-end or single-raster Canopy Height Model (CHM) analysis using
-#' Meta & WRI's 1m ALS GEDI v6 global dataset. Downloads, mosaics,
-#' crops, analyzes, and visualizes CHM data for any AOI, or analyzes a
-#' user-supplied .tif directly. Outputs both publication-quality (tmap)
-#' and interactive (mapview) maps, with progress/status reporting.
+#' Downloads, crops, analyzes, and visualizes Meta/WRI DINOv3 global canopy
+#' height data for an AOI, or analyzes a local CHM raster. In minimal mode,
+#' the function only produces the processed CHM raster and metadata, which is
+#' useful when called internally by urban_heat_decision_support().
 #'
-#' @details
-#' **CRAN policy note:** This function downloads data from the internet if
-#' `location`, `bbox`, or `aoi_geojson` are specified and the required local files
-#' are not present. Internet access is not permitted in CRAN checks or
-#' non-interactive sessions. If you are running in batch, automated, or non-interactive
-#' mode (including CRAN), you **must** provide all required files locally (e.g., `chm_tif`, `aoi_geojson`).
+#' @param location Character string used to geocode an AOI with Nominatim.
+#' @param bbox Numeric vector `c(xmin, ymin, xmax, ymax)` in EPSG:4326.
+#' @param aoi_geojson Path to a GeoJSON file describing the AOI.
+#' @param aoi An `sf` object describing the AOI.
+#' @param chm_tif Optional local canopy height raster to analyze instead of downloading tiles.
+#' @param output_dir Output directory for rasters, plots, and metadata.
+#' @param minimal If `TRUE`, return only the processed raster and metadata.
+#' @param reuse_downloads If `TRUE`, reuse previously processed raster outputs when present.
+#' @param apply_mask If `TRUE`, mask the raster to the AOI after cropping.
+#' @param crop_result If `TRUE`, crop the raster to the AOI extent.
+#' @param create_plots If `TRUE`, create static plots.
+#' @param create_hex_summary If `TRUE`, create the hexagonal summary layer.
+#' @param hex_cellsize_m Hexagon cell size in meters.
+#' @param create_interactive If `TRUE`, create an interactive leaflet map.
+#' @param fetch_osm_context If `TRUE`, fetch optional OSM context layers for plotting.
+#' @param height_threshold Height threshold in meters used for tree cover summaries.
+#' @param canopy_thresholds Numeric vector of canopy height thresholds for sensitivity analysis.
+#' @param tall_canopy_threshold Threshold in meters used for tall canopy summaries.
+#' @param gap_threshold Threshold in meters used for gap summaries.
+#' @param max_tiles Maximum number of CHM tiles to process.
+#' @param stream_cog If `TRUE`, stream COG tiles instead of downloading them locally.
+#' @param cache_tiles If `TRUE`, cache tile downloads in `output_dir`.
+#' @param aggregate_for_heat If `TRUE`, also create an aggregated raster for downstream heat workflows.
+#' @param aggregate_resolution_m Resolution in meters for the aggregated raster.
+#' @param max_cells_plot Maximum number of raster cells used when drawing static plots.
+#' @param max_cells_mapview Maximum number of raster cells used in the interactive map.
+#' @param compression GDAL compression option passed to `terra::writeRaster()`.
+#' @param request_timeout Timeout in seconds for geocoding requests.
+#' @param user_agent_string User agent string used for Nominatim requests.
+#' @param verbose If `TRUE`, print progress messages.
 #'
-#' @description
-#' - **Data Source:** ALS GEDI v6 global canopy height model, Meta & WRI (2024).
-#' - **Interactive map is downsampled for browser performance**; see `max_cells_mapview`.
-#'
-#' @param location Character. Place name for AOI (e.g. "Basel, Switzerland").
-#' @param bbox Numeric. Bounding box (xmin, ymin, xmax, ymax, EPSG:4326).
-#' @param aoi_geojson Path to GeoJSON file defining AOI (overrides location/bbox).
-#' @param chm_tif Path to a local CHM raster (.tif). If supplied, skips tile download/mosaic.
-#' @param output_dir Output directory for all files.
-#' @param apply_mask Mask raster to AOI (default TRUE).
-#' @param crop_result Crop raster to AOI (default TRUE).
-#' @param create_plots Export static tmap and histogram (default TRUE).
-#' @param height_threshold Height (m) for tree coverage (default 2).
-#' @param max_tiles Max CHM tiles to use (default 100).
-#' @param mapview_html Output HTML file for interactive map.
-#' @param tmap_png Output PNG for publication-quality map.
-#' @param max_cells_mapview Maximum number of raster cells in the interactive map (default 1e5).
-#' @param n_cores Parallel cores for download (default: parallel::detectCores() - 1).
-#' @param chunk_size Tiles per parallel chunk (default 5).
-#' @param cache_tiles Cache tiles/AOI (default TRUE).
-#' @param compression Compression for output raster ("LZW", etc.).
-#' @param user_agent_string HTTP user agent string (for Nominatim, etc).
-#' @param request_timeout HTTP timeout in seconds (default 300).
-#'
-#' @return List with: raster, stats, static_map, mapview_file, plot_hist_file, tmap_file
-#' @export
+#' @return A list containing the processed raster, derived statistics, optional hex summary, static plots, optional interactive map, output file paths, selected tiles, and metadata.
 #'
 #' @examples
 #' \dontrun{
-#' # Example 1: AOI from bounding box (Zurich, Switzerland)
-#' res_bbox <- chm_analysis(
-#'   bbox = c(8.51, 47.36, 8.56, 47.40),
-#'   output_dir = tempdir(), max_tiles = 2, create_plots = TRUE
+#' res <- chm_analysis(
+#'   location = "Basel, Switzerland",
+#'   output_dir = tempfile("chm_"),
+#'   create_interactive = FALSE
 #' )
-#' print(res_bbox$stats)
-#'
-#' # Example 2: AOI from location string (Parc La Grange, Geneva)
-#' res_loc <- chm_analysis(
-#'   location = "Parc La Grange, Geneva, Switzerland",
-#'   output_dir = tempdir(), max_tiles = 2
-#' )
-#' print(res_loc$stats)
-#'
-#' # Example 3: Analyze a user-supplied CHM raster
-#' # Assume you have a file "my_canopy.tif" (projected or WGS84)
-#' res_tif <- chm_analysis(
-#'   chm_tif = "my_canopy.tif",
-#'   output_dir = tempdir(),
-#'   create_plots = TRUE,
-#'   height_threshold = 3
-#' )
-#' print(res_tif$stats)
+#' names(res$plots)
 #' }
+#'
+#' @export
 chm_analysis <- function(
     location = NULL,
     bbox = NULL,
     aoi_geojson = NULL,
+    aoi = NULL,
     chm_tif = NULL,
     output_dir = "chm_output",
+    minimal = FALSE,
+    reuse_downloads = TRUE,
     apply_mask = TRUE,
     crop_result = TRUE,
     create_plots = TRUE,
+    create_hex_summary = TRUE,
+    hex_cellsize_m = 100,
+    create_interactive = TRUE,
+    fetch_osm_context = TRUE,
     height_threshold = 2,
+    canopy_thresholds = c(2, 5, 10, 15, 20),
+    tall_canopy_threshold = 10,
+    gap_threshold = 1,
     max_tiles = 100,
-    mapview_html = "chm_mapview.html",
-    tmap_png = "chm_tmap.png",
-    max_cells_mapview = 2e5,
-    n_cores = parallel::detectCores() - 1,
-    chunk_size = 5,
+    stream_cog = FALSE,
     cache_tiles = TRUE,
+    aggregate_for_heat = FALSE,
+    aggregate_resolution_m = 10,
+    max_cells_plot = 2e5,
+    max_cells_mapview = 2e5,
     compression = "LZW",
-    user_agent_string = "R/chm_analysis_script (your_email_or_project_url)",
-    request_timeout = 300
+    request_timeout = 300,
+    user_agent_string = "R/chm_analysis (research-use)",
+    verbose = TRUE
 ) {
-  # CRAN/interactivity guard for internet access
-  # If we do NOT have a local file to use, and we're not interactive, block execution
-  if (!interactive() && is.null(chm_tif) &&
-      (is.null(aoi_geojson) || !file.exists(aoi_geojson)) &&
-      is.null(bbox) && is.null(location)) {
-    stop("For CRAN or non-interactive sessions, you must provide a local CHM raster (`chm_tif`) or a local AOI GeoJSON (`aoi_geojson`). Internet access is not allowed in non-interactive mode.")
-  }
-  # If non-interactive and using internet (e.g., bbox, location, aoi_geojson remote), block
-  if (!interactive() && (is.null(chm_tif) || !file.exists(chm_tif))) {
-    stop("chm_analysis() downloads data from the internet if not supplied a local raster (chm_tif). This is not permitted in non-interactive or CRAN checks. Please run interactively or provide all files locally.")
-  }
+  optional <- .chm_check_packages()
+  .chm_set_gdal_env()
+  start_time <- Sys.time()
 
-  pkgs <- c("sf", "terra", "httr", "jsonlite", "glue", "curl", "ggplot2", "viridis",
-            "tmap", "mapview", "htmlwidgets", "parallel")
-  for (pkg in pkgs) {
-    if (!requireNamespace(pkg, quietly = TRUE)) stop(sprintf("Package '%s' required!", pkg), call. = FALSE)
-  }
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+  tile_cache_dir <- file.path(output_dir, "tile_cache")
+  if (isTRUE(cache_tiles)) dir.create(tile_cache_dir, showWarnings = FALSE, recursive = TRUE)
 
-  message("Starting CHM Analysis: ", Sys.time())
+  .chm_msg("\n+========================================+", verbose = verbose)
+  .chm_msg("|        CHM CANOPY ANALYSIS             |", verbose = verbose)
+  .chm_msg("|   Meta/WRI DINOv3 global CHM           |", verbose = verbose)
+  .chm_msg("+========================================+\n", verbose = verbose)
 
-  # AOI (required even if chm_tif provided, for masking/stats/maps)
-  aoi <- NULL; aoi_cache_file <- file.path(output_dir, "aoi_cache.rds")
-  if (!is.null(aoi_geojson) && file.exists(aoi_geojson)) {
-    message("Using AOI from GeoJSON.")
-    aoi <- sf::st_read(aoi_geojson, quiet = TRUE) |> sf::st_transform(3857)
-    if (cache_tiles) saveRDS(aoi, aoi_cache_file)
-  } else if (!is.null(bbox)) {
-    message("Using AOI from bbox.")
-    coords <- matrix(c(bbox[1], bbox[2], bbox[3], bbox[2], bbox[3], bbox[4],
-                       bbox[1], bbox[4], bbox[1], bbox[2]), ncol = 2, byrow = TRUE)
-    aoi <- sf::st_sf(geometry = sf::st_sfc(sf::st_polygon(list(coords)), crs = 4326)) |> sf::st_transform(3857)
-    if (cache_tiles) saveRDS(aoi, aoi_cache_file)
-  } else if (!is.null(location)) {
-    if (!interactive()) stop("Geocoding requires internet access and is not allowed in non-interactive or CRAN mode.")
-    message("Geocoding AOI with Nominatim: ", location)
-    nom_url <- "https://nominatim.openstreetmap.org/search"
-    resp <- httr::GET(
-      nom_url, query = list(q = location, format = "geojson", polygon_geojson = 1, limit = 1),
-      httr::user_agent(user_agent_string), httr::timeout(request_timeout)
-    )
-    stopifnot(httr::status_code(resp) == 200)
-    tf <- tempfile(fileext = ".geojson")
-    writeLines(httr::content(resp, as = "text", encoding = "UTF-8"), tf)
-    aoi <- sf::st_read(tf, quiet = TRUE)[1, ] |> sf::st_transform(3857)
-    unlink(tf)
-    if (cache_tiles) saveRDS(aoi, aoi_cache_file)
-  } else if (is.null(chm_tif)) {
-    stop("Must provide at least one of: location, bbox, aoi_geojson, or chm_tif.")
-  }
-  aoi_wgs <- if (!is.null(aoi)) sf::st_transform(aoi, 4326) else NULL
+  dataset_root <- "https://dataforgood-fb-data.s3.amazonaws.com/forests/v2/global/dinov3_global_chm_v2_ml3"
+  tiles_index_url <- paste0(dataset_root, "/tiles.geojson")
+  chm_base_url <- paste0(dataset_root, "/chm")
+  metadata_base_url <- paste0(dataset_root, "/metadata")
 
-  # If chm_tif is supplied, read and use as-is (skip download/mosaic)
-  if (!is.null(chm_tif)) {
-    message("Using user-supplied CHM raster: ", chm_tif)
-    mosaic_safe <- terra::rast(chm_tif)
-    # Project raster to AOI CRS if needed
-    if (!is.null(aoi) && terra::crs(mosaic_safe) != terra::crs(aoi)) {
-      mosaic_safe <- terra::project(mosaic_safe, terra::crs(aoi))
-    }
+  processed_raster_path <- file.path(output_dir, "chm_final_processed.tif")
+  aggregated_raster_path <- file.path(output_dir, paste0("chm_aggregated_", aggregate_resolution_m, "m.tif"))
+  metadata_path <- file.path(output_dir, "chm_metadata.rds")
+
+  # Reuse existing processed raster if requested.
+  if (isTRUE(reuse_downloads) && file.exists(processed_raster_path) && file.info(processed_raster_path)$size > 1000) {
+    .chm_msg("[reuse] Using existing processed CHM: ", processed_raster_path, verbose = verbose)
+    chm <- terra::rast(processed_raster_path)
+    names(chm) <- "canopy_height_m"
+    selected_tiles <- NULL
+    selected_tile_ids <- character(0)
+    aoi_res <- .chm_resolve_aoi(location, bbox, aoi_geojson, aoi, user_agent_string, request_timeout, verbose = FALSE)
+    aoi_wgs <- if (!is.null(aoi_res)) aoi_res$aoi_wgs else NULL
+    location_label <- if (!is.null(aoi_res)) aoi_res$label else "reused CHM"
   } else {
-    # Download tiles as before (allowed only interactively)
-    if (!interactive()) stop("Downloading tiles is not permitted in non-interactive or CRAN mode.")
-    idx_url  <- "https://dataforgood-fb-data.s3.amazonaws.com/forests/v1/alsgedi_global_v6_float/tiles.geojson"
-    idx_file <- file.path(output_dir, "tiles.geojson")
-    if (!file.exists(idx_file)) curl::curl_download(idx_url, idx_file)
-    tiles <- sf::st_read(idx_file, quiet = TRUE) |> sf::st_transform(sf::st_crs(aoi))
-    tgt <- tiles[sf::st_intersects(tiles, aoi, sparse = FALSE), ]
-    if (!nrow(tgt)) stop("AOI not covered by CHM tiles.")
-    if (nrow(tgt) > max_tiles) {
-      warning(sprintf("Limiting to first %d tiles", max_tiles))
-      tgt <- tgt[seq_len(max_tiles), ]
+    # ------------------------------------------------------------------------
+    # 1. AOI
+    # ------------------------------------------------------------------------
+    .chm_msg("[1/8] Preparing AOI...", verbose = verbose)
+
+    aoi_res <- .chm_resolve_aoi(
+      location = location,
+      bbox = bbox,
+      aoi_geojson = aoi_geojson,
+      aoi = aoi,
+      user_agent_string = user_agent_string,
+      request_timeout = request_timeout,
+      verbose = verbose
+    )
+
+    aoi_wgs <- if (!is.null(aoi_res)) aoi_res$aoi_wgs else NULL
+    location_label <- if (!is.null(aoi_res)) aoi_res$label else "local CHM"
+
+    if (is.null(aoi_wgs) && is.null(chm_tif)) {
+      stop("Provide one of location, bbox, aoi_geojson, aoi, or chm_tif.", call. = FALSE)
     }
-    base_tile_url <- "https://dataforgood-fb-data.s3.amazonaws.com/forests/v1/alsgedi_global_v6_float/chm"
-    tile_cache_dir <- file.path(output_dir, "tile_cache")
-    if (!dir.exists(tile_cache_dir)) dir.create(tile_cache_dir)
-    validate_raster <- function(p) {
-      if (!file.exists(p) || file.info(p)$size < 1000) return(FALSE)
-      tryCatch({
-        r <- terra::rast(p)
-        ext_valid <- !is.na(terra::ext(r)) && terra::ncell(r) > 0
-        if (!ext_valid) return(FALSE)
-        vals <- terra::spatSample(r, size = min(100, terra::ncell(r)), method = "random", na.rm = TRUE)
-        any(is.finite(vals[,1]))
-      }, error = function(e) FALSE)
-    }
-    download_tile_batch <- function(tile_ids, target_dir) {
-      lapply(tile_ids, function(tile_id) {
-        chm_file <- file.path(target_dir, paste0(tile_id, ".tif"))
-        url <- sprintf("%s/%s.tif", base_tile_url, tile_id)
-        if (!file.exists(chm_file) || !validate_raster(chm_file)) {
-          try(unlink(chm_file), silent = TRUE)
-          curl::curl_download(url, chm_file, quiet = TRUE)
-        }
-        list(file = chm_file, tile_id = tile_id, valid = validate_raster(chm_file))
-      })
-    }
-    tile_ids <- tgt$tile
-    actual_n_cores <- min(n_cores, length(tile_ids))
-    tile_chunks <- split(tile_ids, ceiling(seq_along(tile_ids) / chunk_size))
-    message("Downloading CHM tiles...")
-    all_results <- if (actual_n_cores > 1) {
-      cl <- parallel::makeCluster(actual_n_cores)
-      on.exit(parallel::stopCluster(cl), add = TRUE)
-      parallel::clusterExport(cl, c("download_tile_batch", "validate_raster", "base_tile_url", "tile_cache_dir"), envir = environment())
-      res <- parallel::parLapply(cl, tile_chunks, function(chunk) download_tile_batch(chunk, tile_cache_dir))
-      do.call(c, res)
+
+    # ------------------------------------------------------------------------
+    # 2. Resolve raster source
+    # ------------------------------------------------------------------------
+    .chm_msg("[2/8] Resolving CHM raster source...", verbose = verbose)
+
+    selected_tiles <- NULL
+    selected_tile_ids <- character(0)
+    raster_sources <- character(0)
+
+    if (!is.null(chm_tif)) {
+      if (!file.exists(chm_tif)) stop("chm_tif does not exist: ", chm_tif, call. = FALSE)
+      .chm_msg("  Using local CHM raster: ", chm_tif, verbose = verbose)
+      raster_sources <- chm_tif
     } else {
-      do.call(c, lapply(tile_chunks, function(chunk) download_tile_batch(chunk, tile_cache_dir)))
-    }
-    valid_files <- vapply(all_results, function(x) if (isTRUE(x$valid)) x$file else NA_character_, character(1))
-    valid_files <- valid_files[!is.na(valid_files)]
-    if (!length(valid_files)) stop("No valid rasters downloaded.")
-    message(sprintf("Successfully obtained %d CHM tiles.", length(valid_files)))
-    # Mosaic tiles as before
-    if (length(valid_files) == 1) {
-      mosaic_safe <- terra::rast(valid_files)
-    } else {
-      max_direct_mosaic <- 8
-      if (length(valid_files) <= max_direct_mosaic) {
-        mosaic_safe <- terra::mosaic(terra::sprc(lapply(valid_files, terra::rast)), fun = "max")
+      index_file <- file.path(output_dir, "chm_tiles.geojson")
+      if (!file.exists(index_file) || !isTRUE(cache_tiles)) {
+        .chm_msg("  Downloading CHM tile index...", verbose = verbose)
+        curl::curl_download(tiles_index_url, index_file, quiet = TRUE)
       } else {
-        chunk_size_mosaic <- min(8, ceiling(length(valid_files) / (actual_n_cores * 1.5)))
-        file_chunks <- split(valid_files, ceiling(seq_along(valid_files) / chunk_size_mosaic))
-        temp_mosaics <- lapply(file_chunks, function(chunk) terra::mosaic(terra::sprc(lapply(chunk, terra::rast)), fun = "max", na.rm = TRUE))
-        mosaic_safe <- terra::mosaic(terra::sprc(temp_mosaics), fun = "max")
+        .chm_msg("  Using cached CHM tile index.", verbose = verbose)
+      }
+
+      tiles <- sf::st_read(index_file, quiet = TRUE)
+      tiles <- sf::st_transform(tiles, 4326)
+      tiles <- .chm_safe_make_valid(tiles)
+
+      id_candidates <- c("tile", "quadkey", "qk", "id", "name")
+      id_col <- id_candidates[id_candidates %in% names(tiles)][1]
+      if (is.na(id_col)) {
+        stop("Could not identify tile id column in tiles.geojson. Columns: ", paste(names(tiles), collapse = ", "), call. = FALSE)
+      }
+
+      overlap <- suppressWarnings(sf::st_intersects(tiles, aoi_wgs, sparse = FALSE))
+      selected_tiles <- tiles[apply(overlap, 1, any), ]
+
+      if (nrow(selected_tiles) == 0) {
+        stop("No CHM tiles intersect the AOI.", call. = FALSE)
+      }
+
+      if (nrow(selected_tiles) > max_tiles) {
+        warning(
+          sprintf("AOI intersects %d tiles; limiting to first %d. Use a smaller AOI or increase max_tiles.", nrow(selected_tiles), max_tiles),
+          call. = FALSE
+        )
+        selected_tiles <- selected_tiles[seq_len(max_tiles), ]
+      }
+
+      selected_tile_ids <- as.character(selected_tiles[[id_col]])
+      .chm_msg(sprintf("  Selected %d CHM tile(s).", length(selected_tile_ids)), verbose = verbose)
+
+      tile_exists <- function(url) {
+        ok <- FALSE
+        try({
+          h <- httr::HEAD(url, httr::timeout(30))
+          ok <- httr::status_code(h) >= 200 && httr::status_code(h) < 400
+        }, silent = TRUE)
+        ok
+      }
+
+      for (tile_id in selected_tile_ids) {
+        url_tif <- paste0(chm_base_url, "/", tile_id, ".tif")
+        url_tiff <- paste0(chm_base_url, "/", tile_id, ".tiff")
+        url <- if (tile_exists(url_tif)) url_tif else url_tiff
+        ext <- tools::file_ext(url)
+        if (!nzchar(ext)) ext <- "tif"
+        local_file <- file.path(tile_cache_dir, paste0(tile_id, ".", ext))
+
+        if (isTRUE(stream_cog)) {
+          src <- paste0("/vsicurl/", url)
+        } else {
+          if (!file.exists(local_file) || file.info(local_file)$size < 1000) {
+            .chm_msg("    Downloading tile ", tile_id, verbose = verbose)
+            curl::curl_download(url, local_file, quiet = TRUE)
+          } else {
+            .chm_msg("    Reusing cached tile ", tile_id, verbose = verbose)
+          }
+          src <- local_file
+        }
+
+        if (.chm_validate_raster(src)) {
+          raster_sources <- c(raster_sources, src)
+        } else {
+          warning("Tile could not be read and will be skipped: ", tile_id, call. = FALSE)
+        }
       }
     }
+
+    if (length(raster_sources) == 0) {
+      stop("No valid CHM rasters available for analysis.", call. = FALSE)
+    }
+
+    # ------------------------------------------------------------------------
+    # 3. Read, mosaic, crop, mask
+    # ------------------------------------------------------------------------
+    .chm_msg("[3/8] Reading, mosaicking, cropping, and masking CHM raster...", verbose = verbose)
+
+    read_safe <- function(src) {
+      r <- terra::rast(src)
+      if (is.na(terra::crs(r))) {
+        warning("Raster has no CRS; assigning EPSG:3857 because CHM tiles are web-tile based.", call. = FALSE)
+        terra::crs(r) <- "EPSG:3857"
+      }
+      r
+    }
+
+    rasters <- lapply(raster_sources, read_safe)
+
+    if (length(rasters) == 1) {
+      chm <- rasters[[1]]
+    } else {
+      chunk_size <- 8
+      chunks <- split(rasters, ceiling(seq_along(rasters) / chunk_size))
+      temp_mosaics <- lapply(seq_along(chunks), function(i) {
+        .chm_msg(sprintf("  Mosaic chunk %d/%d", i, length(chunks)), verbose = verbose)
+        terra::mosaic(terra::sprc(chunks[[i]]), fun = "max", na.rm = TRUE)
+      })
+      chm <- terra::mosaic(terra::sprc(temp_mosaics), fun = "max", na.rm = TRUE)
+    }
+
+    if (!is.null(aoi_wgs)) {
+      aoi_for_raster <- sf::st_transform(aoi_wgs, terra::crs(chm))
+      aoi_vect <- terra::vect(aoi_for_raster)
+      if (isTRUE(crop_result)) chm <- terra::crop(chm, aoi_vect, snap = "out")
+      if (isTRUE(apply_mask)) chm <- terra::mask(chm, aoi_vect)
+    }
+
+    chm[chm < 0 | chm > 200] <- NA
+    names(chm) <- "canopy_height_m"
+
+    gdal_options <- c("TILED=YES", "BIGTIFF=IF_SAFER")
+    if (!identical(compression, "NONE")) gdal_options <- c(paste0("COMPRESS=", compression), gdal_options)
+
+    terra::writeRaster(chm, processed_raster_path, overwrite = TRUE, gdal = gdal_options)
+    .chm_msg("  Saved processed CHM: ", processed_raster_path, verbose = verbose)
   }
-  aoi_vect <- if (!is.null(aoi)) terra::vect(aoi) else NULL
-  if (!is.null(aoi_vect)) {
-    if (crop_result) mosaic_safe <- terra::crop(mosaic_safe, aoi_vect, snap = "out")
-    if (apply_mask) mosaic_safe <- terra::mask(mosaic_safe, aoi_vect)
-  }
-  mosaic_safe[mosaic_safe > 200 | mosaic_safe < 0] <- NA
-  out_rast_path <- file.path(output_dir, "chm_final_processed.tif")
+
   gdal_options <- c("TILED=YES", "BIGTIFF=IF_SAFER")
-  if (compression != "NONE") gdal_options <- c(paste0("COMPRESS=", compression), gdal_options)
-  terra::writeRaster(mosaic_safe, out_rast_path, overwrite = TRUE, gdal = gdal_options)
-  message("Raster saved: ", out_rast_path)
+  if (!identical(compression, "NONE")) gdal_options <- c(paste0("COMPRESS=", compression), gdal_options)
 
-  # --- Statistics ---
-  message("Calculating summary statistics...")
-  stats <- terra::global(mosaic_safe, fun = c("min", "max", "mean", "sd"), na.rm = TRUE)
-  total_px <- terra::global(mosaic_safe, "notNA", na.rm = TRUE)$notNA
-  tree_mask <- mosaic_safe >= height_threshold
-  tree_px <- terra::global(tree_mask, "sum", na.rm = TRUE)$sum
-  percent_tree_cover <- (tree_px / total_px) * 100
-  aoi_equal_area <- if (!is.null(aoi)) sf::st_transform(aoi, "+proj=moll +lon_0=0 +datum=WGS84 +units=m +no_defs") else NULL
-  aoi_area_km2 <- if (!is.null(aoi_equal_area)) as.numeric(sf::st_area(aoi_equal_area)) / 1e6 else NA_real_
+  # Optional aggregation for downstream heat workflow.
+  aggregated_file <- NULL
+  if (isTRUE(aggregate_for_heat)) {
+    if (terra::res(chm)[1] < aggregate_resolution_m || terra::res(chm)[2] < aggregate_resolution_m) {
+      fact <- max(1, round(aggregate_resolution_m / min(abs(terra::res(chm)))))
+      chm_agg <- terra::aggregate(chm, fact = fact, fun = mean, na.rm = TRUE)
+    } else {
+      chm_agg <- chm
+    }
+    names(chm_agg) <- "canopy_height_m"
+    terra::writeRaster(chm_agg, aggregated_raster_path, overwrite = TRUE, gdal = gdal_options)
+    aggregated_file <- aggregated_raster_path
+  }
 
-  stats_summary <- list(
-    min_height_m = stats$min, max_height_m = stats$max, mean_height_m = stats$mean, sd_height_m = stats$sd,
-    total_valid_pixels = total_px, tree_pixels_gte_threshold = tree_px, percent_tree_cover = percent_tree_cover,
-    aoi_geometric_sqkm = aoi_area_km2,
+  # Minimal return for urban_heat_decision_support().
+  if (isTRUE(minimal)) {
+    elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
+    meta <- list(
+      dataset = "Meta/WRI DINOv3 global CHM",
+      dataset_root = dataset_root,
+      chm_base_url = chm_base_url,
+      metadata_base_url = metadata_base_url,
+      location = location_label,
+      bbox = if (!is.null(aoi_wgs)) as.numeric(sf::st_bbox(aoi_wgs)) else NULL,
+      selected_tile_ids = selected_tile_ids,
+      streamed_cogs = stream_cog,
+      max_tiles = max_tiles,
+      mode = "minimal",
+      processed_raster = processed_raster_path,
+      aggregated_raster = aggregated_file,
+      processing_time_seconds = elapsed,
+      created_at = Sys.time(),
+      note = "Minimal mode returns only the processed CHM raster and metadata."
+    )
+    saveRDS(meta, metadata_path)
+
+    .chm_msg("\n* chm_analysis() minimal mode complete.", verbose = verbose)
+    .chm_msg("  Processed CHM: ", processed_raster_path, verbose = verbose)
+
+    return(list(
+      raster = chm,
+      canopy_class_raster = NULL,
+      stats = NULL,
+      hex_summary = NULL,
+      plots = list(),
+      interactive_map = NULL,
+      files = list(
+        processed_raster = processed_raster_path,
+        aggregated_raster = aggregated_file,
+        canopy_class_raster = NULL,
+        hex_summary = NULL,
+        interactive_map = NULL,
+        plots = list(),
+        metadata = metadata_path
+      ),
+      selected_tiles = selected_tiles,
+      selected_tile_ids = selected_tile_ids,
+      metadata = meta
+    ))
+  }
+
+  # --------------------------------------------------------------------------
+  # Full mode only from here
+  # --------------------------------------------------------------------------
+
+  # Optional OSM context for plots.
+  context <- list(roads = NULL, green = NULL, water = NULL, trees = NULL)
+  if (isTRUE(fetch_osm_context) && !is.null(aoi_wgs)) {
+    .chm_msg("[1b/8] Fetching optional OSM context for cartography...", verbose = verbose)
+    osm_context <- .chm_get_osm_context(aoi_wgs, verbose = verbose)
+    context <- .chm_prepare_context_layers(osm_context)
+  }
+
+  # --------------------------------------------------------------------------
+  # 4. Statistics
+  # --------------------------------------------------------------------------
+  .chm_msg("[4/8] Calculating canopy statistics...", verbose = verbose)
+
+  vals <- terra::values(chm, mat = FALSE)
+  vals <- vals[is.finite(vals)]
+  if (length(vals) == 0) stop("No valid CHM values after crop/mask.", call. = FALSE)
+
+  pixel_area_m2 <- prod(abs(terra::res(chm)))
+  valid_px <- length(vals)
+  valid_area_km2 <- valid_px * pixel_area_m2 / 1e6
+
+  threshold_stats <- do.call(rbind, lapply(canopy_thresholds, function(th) {
+    px <- sum(vals >= th, na.rm = TRUE)
+    data.frame(
+      threshold_m = th,
+      pixels = px,
+      area_m2 = px * pixel_area_m2,
+      area_km2 = px * pixel_area_m2 / 1e6,
+      cover_pct = 100 * px / valid_px
+    )
+  }))
+
+  aoi_area_km2 <- NA_real_
+  if (!is.null(aoi_wgs)) {
+    aoi_equal_area <- sf::st_transform(aoi_wgs, "+proj=moll +lon_0=0 +datum=WGS84 +units=m +no_defs")
+    aoi_area_km2 <- as.numeric(sf::st_area(aoi_equal_area)) / 1e6
+  }
+
+  stats_aoi <- list(
+    min_height_m = unname(min(vals, na.rm = TRUE)),
+    max_height_m = unname(max(vals, na.rm = TRUE)),
+    mean_height_m = unname(mean(vals, na.rm = TRUE)),
+    median_height_m = unname(stats::median(vals, na.rm = TRUE)),
+    sd_height_m = unname(stats::sd(vals, na.rm = TRUE)),
+    p75_height_m = unname(stats::quantile(vals, 0.75, na.rm = TRUE)),
+    p90_height_m = unname(stats::quantile(vals, 0.90, na.rm = TRUE)),
+    p95_height_m = unname(stats::quantile(vals, 0.95, na.rm = TRUE)),
+    tree_cover_pct = unname(100 * sum(vals >= height_threshold, na.rm = TRUE) / valid_px),
+    tall_canopy_pct = unname(100 * sum(vals >= tall_canopy_threshold, na.rm = TRUE) / valid_px),
+    gap_pct = unname(100 * sum(vals <= gap_threshold, na.rm = TRUE) / valid_px),
+    canopy_volume_proxy_m3_per_m2 = unname(mean(pmax(vals - height_threshold, 0), na.rm = TRUE)),
+    valid_pixel_count = valid_px,
+    valid_area_km2 = valid_area_km2,
+    aoi_geometric_area_km2 = aoi_area_km2,
+    pixel_area_m2 = pixel_area_m2,
     height_threshold_for_tree_stats_m = height_threshold,
-    final_raster_crs_proj4 = terra::crs(mosaic_safe, proj = TRUE)
+    tall_canopy_threshold_m = tall_canopy_threshold,
+    gap_threshold_m = gap_threshold,
+    raster_crs = terra::crs(chm, proj = TRUE)
   )
 
-  # --- Publication quality map (tmap, v3/v4 robust) ---
-  tmap_file <- file.path(output_dir, tmap_png)
-  static_map <- NULL
-  if (create_plots) {
-    tmap::tmap_mode("plot")
-    proj_r <- terra::project(mosaic_safe, "EPSG:4326")
-    tmap_v <- as.integer(utils::packageVersion("tmap")$major)
-    if (tmap_v >= 4) {
-      static_map <- tmap::tm_shape(proj_r) +
-        tmap::tm_raster(
-          col.scale = tmap::tm_scale_continuous(values = "viridis"),
-          col_alpha = 0.8,
-          col.legend = tmap::tm_legend(title = "Canopy Height (m)")
-        ) +
-        tmap::tm_shape(aoi_wgs) + tmap::tm_borders(col = "red", lwd = 2) +
-        tmap::tm_basemap("OpenStreetMap") +
-        tmap::tm_layout(legend.outside = TRUE)
-    } else {
-      static_map <- tmap::tm_shape(proj_r) +
-        tmap::tm_raster(style = "cont", palette = "viridis",
-                        alpha = 0.8, title = "Canopy Height (m)") +
-        tmap::tm_shape(aoi_wgs) + tmap::tm_borders(col = "red", lwd = 2) +
-        tmap::tm_basemap("OpenStreetMap") +
-        tmap::tm_layout(legend.outside = TRUE, frame = FALSE, legend.frame = FALSE)
+  # --------------------------------------------------------------------------
+  # 5. Canopy class raster
+  # --------------------------------------------------------------------------
+  .chm_msg("[5/8] Creating canopy class raster...", verbose = verbose)
+
+  canopy_class <- .chm_canopy_classes(
+    chm,
+    gap_threshold = gap_threshold,
+    height_threshold = height_threshold,
+    tall_canopy_threshold = tall_canopy_threshold
+  )
+  names(canopy_class) <- "canopy_class"
+  class_raster_path <- file.path(output_dir, "chm_canopy_classes.tif")
+  terra::writeRaster(canopy_class, class_raster_path, overwrite = TRUE, gdal = gdal_options)
+
+  # --------------------------------------------------------------------------
+  # 6. Hex summary
+  # --------------------------------------------------------------------------
+  .chm_msg("[6/8] Creating optional hex summary...", verbose = verbose)
+
+  hex_summary <- NULL
+  hex_path <- NULL
+
+  if (isTRUE(create_hex_summary) && !is.null(aoi_wgs)) {
+    hex_summary <- .chm_make_hex_summary(
+      chm = chm,
+      aoi_wgs = aoi_wgs,
+      hex_cellsize_m = hex_cellsize_m,
+      height_threshold = height_threshold,
+      tall_canopy_threshold = tall_canopy_threshold,
+      gap_threshold = gap_threshold,
+      exactextract_available = optional$exactextractr
+    )
+
+    hex_path <- file.path(output_dir, "chm_hex_summary.gpkg")
+    sf::st_write(hex_summary, hex_path, delete_dsn = TRUE, quiet = TRUE)
+    .chm_msg("  Saved hex summary: ", hex_path, verbose = verbose)
+  }
+
+  # --------------------------------------------------------------------------
+  # 7. Plots
+  # --------------------------------------------------------------------------
+  .chm_msg("[7/8] Creating plots...", verbose = verbose)
+
+  plots <- list()
+  plot_files <- list()
+
+  if (isTRUE(create_plots)) {
+    plots$histogram <- .chm_plot_histogram(vals, height_threshold, tall_canopy_threshold)
+    plots$threshold_curve <- .chm_plot_threshold_curve(threshold_stats)
+
+    if (!is.null(hex_summary)) {
+      plots$hex_mean_height <- .chm_plot_hex_map(
+        hex_summary,
+        value_col = "mean_chm",
+        title = "Neighbourhood-Scale Canopy Structure",
+        subtitle = paste0("Hex grid: ", hex_cellsize_m, " m; mean canopy height"),
+        legend_title = "Mean\nCHM (m)",
+        context = context,
+        aoi_wgs = aoi_wgs
+      )
+
+      plots$hex_tree_cover <- .chm_plot_hex_map(
+        hex_summary,
+        value_col = "tree_cover_pct",
+        title = "Tree Canopy Cover",
+        subtitle = paste0("Percentage of CHM pixels >= ", height_threshold, " m"),
+        legend_title = "Tree\ncover (%)",
+        context = context,
+        aoi_wgs = aoi_wgs
+      )
+
+      plots$canopy_structure_typology <- .chm_plot_typology(hex_summary)
     }
-    tmap::tmap_save(static_map, filename = tmap_file, width = 2800, height = 2000, dpi = 300)
-    message(sprintf("Saved static tmap to: %s", tmap_file))
+
+    plots <- plots[!vapply(plots, is.null, logical(1))]
+
+    for (nm in names(plots)) {
+      file <- file.path(output_dir, paste0(nm, ".png"))
+      bg <- if (grepl("map|hex", nm)) "#FAF9F6" else "white"
+      ggplot2::ggsave(file, plots[[nm]], width = 9.5, height = 7.8, dpi = 300, bg = bg)
+      plot_files[[nm]] <- file
+    }
   }
 
-  # --- Histogram as fraction of AOI ---
-  plot_hist_file <- NULL
-  chm_df <- terra::as.data.frame(mosaic_safe, xy = FALSE, na.rm = TRUE)
-  colnames(chm_df) <- "height"
-  if (nrow(chm_df) > 0) {
-    hist_plot <- ggplot2::ggplot(subset(chm_df, height > 0), ggplot2::aes(x = height)) +
-      ggplot2::geom_histogram(ggplot2::aes(y = ..count../sum(..count..)), binwidth = 1,
-                              fill = "forestgreen", color = "black") +
-      ggplot2::labs(
-        title = "Fraction of Area vs. Canopy Height",
-        x = "Height (m)", y = "Fraction of AOI"
-      ) +
-      ggplot2::theme_minimal()
-    plot_hist_file <- file.path(output_dir, "chm_hist_fraction.png")
-    ggplot2::ggsave(plot_hist_file, hist_plot, width = 8, height = 6, dpi = 300)
-    message(sprintf("Saved histogram to: %s", plot_hist_file))
+  # --------------------------------------------------------------------------
+  # 8. Interactive map
+  # --------------------------------------------------------------------------
+  .chm_msg("[8/8] Creating optional interactive map...", verbose = verbose)
+
+  interactive_map <- NULL
+  interactive_file <- NULL
+
+  if (isTRUE(create_interactive)) {
+    interactive_file <- file.path(output_dir, "chm_interactive_map.html")
+    interactive_map <- .chm_make_leaflet(
+      chm = chm,
+      aoi_wgs = aoi_wgs,
+      hex_summary = hex_summary,
+      output_file = interactive_file,
+      max_cells_mapview = max_cells_mapview
+    )
+    if (is.null(interactive_map)) interactive_file <- NULL
   }
 
-  # --- Interactive map (mapview) ---
-  mapview_file <- file.path(output_dir, mapview_html)
-  # Downsample raster for mapview
-  agg_factor <- ceiling(sqrt(terra::ncell(mosaic_safe) / max_cells_mapview))
-  web_r <- if (terra::ncell(mosaic_safe) > max_cells_mapview) {
-    terra::aggregate(mosaic_safe, fact = agg_factor, fun = "mean", na.rm = TRUE)
-  } else {
-    mosaic_safe
-  }
-  web_r_proj <- terra::project(web_r, "EPSG:4326")
-  raster_layer <- mapview::mapview(web_r_proj, col.regions = viridis::viridis(99),
-                                   legend = TRUE, layer.name = "Canopy Height (m)", maxpixels = max_cells_mapview)
-  aoi_layer <- if (!is.null(aoi_wgs)) mapview::mapview(aoi_wgs, color = "red", lwd = 2, alpha.regions = 0, layer.name = "AOI Outline") else NULL
-  if (!is.null(aoi_layer)) {
-    mv <- raster_layer + aoi_layer
-    leaf <- mv@map
-    leaf <- leaflet::hideGroup(leaf, "AOI Outline")
-  } else {
-    mv <- raster_layer
-    leaf <- mv@map
-  }
-  htmlwidgets::saveWidget(leaf, file = mapview_file, selfcontained = TRUE)
-  message(sprintf("Saved interactive mapview HTML to: %s", mapview_file))
+  elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
 
-  message("CHM Analysis complete.")
+  meta <- list(
+    dataset = "Meta/WRI DINOv3 global CHM",
+    dataset_root = dataset_root,
+    chm_base_url = chm_base_url,
+    metadata_base_url = metadata_base_url,
+    location = location_label,
+    bbox = if (!is.null(aoi_wgs)) as.numeric(sf::st_bbox(aoi_wgs)) else NULL,
+    selected_tile_ids = selected_tile_ids,
+    streamed_cogs = stream_cog,
+    max_tiles = max_tiles,
+    mode = "full",
+    processed_raster = processed_raster_path,
+    aggregated_raster = aggregated_file,
+    processing_time_seconds = elapsed,
+    created_at = Sys.time(),
+    note = "Interactive and static maps may be downsampled for performance. Exported raster preserves processed CHM resolution."
+  )
 
-  return(list(
-    raster = mosaic_safe,
-    stats = stats_summary,
-    output_file = out_rast_path,
-    tiles_used = if (exists("valid_files")) basename(valid_files) else NA,
-    static_map = static_map,
-    mapview_file = mapview_file,
-    plot_hist_file = plot_hist_file,
-    tmap_file = tmap_file
-  ))
+  saveRDS(meta, metadata_path)
+
+  .chm_msg("\n* chm_analysis() complete.", verbose = verbose)
+  .chm_msg("  Mean height: ", round(stats_aoi$mean_height_m, 2), " m", verbose = verbose)
+  .chm_msg("  Tree cover >= ", height_threshold, " m: ", round(stats_aoi$tree_cover_pct, 1), "%", verbose = verbose)
+  .chm_msg("  Output dir: ", normalizePath(output_dir, mustWork = FALSE), verbose = verbose)
+
+  list(
+    raster = chm,
+    canopy_class_raster = canopy_class,
+    stats = list(
+      aoi = stats_aoi,
+      threshold_cover = threshold_stats
+    ),
+    hex_summary = hex_summary,
+    plots = plots,
+    interactive_map = interactive_map,
+    files = list(
+      processed_raster = processed_raster_path,
+      aggregated_raster = aggregated_file,
+      canopy_class_raster = class_raster_path,
+      hex_summary = hex_path,
+      interactive_map = interactive_file,
+      plots = plot_files,
+      metadata = metadata_path
+    ),
+    selected_tiles = selected_tiles,
+    selected_tile_ids = selected_tile_ids,
+    metadata = meta
+  )
 }
