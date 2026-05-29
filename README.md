@@ -111,8 +111,9 @@ svf_results <- uh_svf(
   terrain_source   = "elevatr",
   elevatr_z        = 13,
   buildings_source = "gba",
-  sample_mode      = "street",
+  sample_mode      = "both",                 # MUST be "both" or "grid" to compute buildings and enable 3D!
   spacing_street_m = 30,                     # Spacing along street network (meters)
+  spacing_grid_m   = 50,                     # Grid sampling interval (meters)
   n_directions     = 36,                     # Number of ray-cast directions
   include_leaflet  = TRUE,                    # Build interactive Leaflet map
   include_3d       = TRUE,                    # Build fully interactive 3D WebGL explorer
@@ -121,7 +122,7 @@ svf_results <- uh_svf(
 )
 
 # Open interactive 3D explorer
-browseURL("./london_svf_outputs/london_full_3d_explorer.html")
+browseURL("./london_svf_outputs/london_full_svf_3d_explorer.html")
 ```
 
 ### 📂 Example 2: Completely Local / Offline Mode (For secure or custom datasets)
