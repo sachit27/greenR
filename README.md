@@ -106,13 +106,18 @@ Automatically downloads London street networks and Meta/WRI 1m GEDI canopy heigh
 library(greenR)
 
 svf_results <- uh_svf(
-  city_name       = "City of London, UK",
-  hex_size_m      = 100,
-  use_cache       = TRUE,
-  include_leaflet = TRUE,
-  include_3d      = TRUE,
-  output_dir      = "./london_svf_outputs",
-  output_prefix   = "london_full"
+  city_name        = "City of London, UK",
+  analysis_scale   = "city_screening",
+  terrain_source   = "elevatr",
+  elevatr_z        = 13,
+  buildings_source = "gba",
+  sample_mode      = "street",
+  spacing_street_m = 30,                     # Spacing along street network (meters)
+  n_directions     = 36,                     # Number of ray-cast directions
+  include_leaflet  = TRUE,                    # Build interactive Leaflet map
+  include_3d       = TRUE,                    # Build fully interactive 3D WebGL explorer
+  output_dir       = "./london_svf_outputs",  # Save files in this directory
+  output_prefix    = "london_full"            # Prefix for all generated maps & assets
 )
 
 # Open interactive 3D explorer
