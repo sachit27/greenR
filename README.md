@@ -48,9 +48,9 @@ Start here if you are new to the package. The three core workflows are:
 
 | Workflow | Use when you want... | Main function |
 |---|---|---|
-| Street greenness | street-level greenness scores from OSM network data | `calculate_green_index()` |
-| SVF analysis | sky-view factor analysis from terrain, buildings, canopy, and ray-casting | `uh_svf()` |
-| Urban heat priority | multi-layer planting-priority analysis, including optional population rasters such as GHSL | `uh_decision()` |
+| Street greenness | street-level greenness scores from OSM network data, typically after `get_osm_data()` | `calculate_green_index()` |
+| SVF analysis | sky-view factor analysis using `elevatr` terrain, Global Building Atlas buildings, Meta CHMv2 canopy, and ray-casting | `uh_svf()` |
+| Urban heat priority | multi-layer planting-priority analysis using GHSL population by default, plus Landsat-9 LST, Sentinel-2 NDVI, Meta CHM, and OSM/GBA layers; reports population-weighted Gini statistics | `uh_decision()` |
 
 Other exported tools are grouped below so they are easier to find:
 
