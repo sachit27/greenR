@@ -69,6 +69,31 @@ sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev
 2. Binary builds for `sf` and `terra` on CRAN include pre-compiled system libraries automatically.
 
 ---
+## Installation
+It can be installed via CRAN
+```r
+install.packages("greenR")
+```
+In case there are difficulties in installing through CRAN (or the current version is not available), you can do it directly via GitHub by running the command below in R.
+
+```r
+# install.packages("remotes") # Uncomment if you do not have the 'remotes' package installed
+remotes::install_github("sachit27/greenR", dependencies = TRUE)
+```
+Or you can also use devtools to install the package.
+
+```r
+library(devtools)
+devtools::install_github("sachit27/greenR", dependencies = TRUE)
+```
+If you're updating from a previous version and encounter any issues, try clearing your package cache:
+```r
+remove.packages("greenR")
+.rs.restartR()
+devtools::install_github("sachit27/greenR", dependencies = TRUE, force = TRUE)
+```
+
+
 
 ## ⚡ Quick Start: Fine-Grained Street Greenness Analysis
 
