@@ -1,5 +1,5 @@
 [![CRAN Version](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
-[![CRAN Downloads](https://cranlogs.r-pkg.org/badges/last-month/greenR)](https://cran.r-project.org/package=greenR)
+[![CRAN Downloads](https://cranlogs.r-pkg.org/badges/grand-total/greenR)](https://cran.r-project.org/package=greenR)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Open Science](https://img.shields.io/badge/Open%20Science-✓-purple.svg)](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
 [![FAIR Data](https://img.shields.io/badge/FAIR-Data-orange.svg)](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
@@ -70,7 +70,7 @@ sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev
 
 ---
 
-## ⚡ Quick Start: Street Greenness in 15 Seconds
+## ⚡ Quick Start: Fine-Grained Street Greenness Analysis
 
 You don't need local spatial files to start. Run the following code in R to automatically download street networks, compute street-segment greenness with distance decay, and render an interactive dark-themed map:
 
