@@ -1,28 +1,30 @@
-[![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
-![CRAN Total Downloads](https://cranlogs.r-pkg.org/badges/grand-total/greenR)
-![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Open Science](https://img.shields.io/badge/Open%20Science-✓-purple)
-![FAIR](https://img.shields.io/badge/FAIR-Data-orange)
+[![CRAN Version](https://www.r-pkg.org/badges/version/greenR)](https://CRAN.R-project.org/package=greenR)
+[![CRAN Downloads](https://cranlogs.r-pkg.org/badges/last-month/greenR)](https://cran.r-project.org/package=greenR)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Open Science](https://img.shields.io/badge/Open%20Science-✓-purple.svg)](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
+[![FAIR Data](https://img.shields.io/badge/FAIR-Data-orange.svg)](https://www.sciencedirect.com/science/article/pii/S1470160X2400565X)
+![Ecosystem Compatibility](https://img.shields.io/badge/ecosystem-r--spatial-388E3C.svg)
+![Prix Carto Winner](https://img.shields.io/badge/Prix_Carto_2025-Winner-9C27B0.svg)
 
 <p align="center">
   <a href="https://kartografie.ch/category/prixcarto/">
-    <img src="vignettes/EDU_mit_SGK.svg" width="140" alt="Prix Carto 2025 Award" />
+    <img src="vignettes/EDU_mit_SGK.svg" width="130" alt="Prix Carto 2025 Award" />
   </a>
 </p>
 
 <p align="center">
-  <img src="vignettes/logo.jpg" width="220" />
-  <img src="vignettes/zh_network.jpg" width="250" />
-  <img src="vignettes/zh_gi.jpg" width="300" />
+  <img src="vignettes/logo.jpg" width="220" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);" />
+  <img src="vignettes/zh_network.jpg" width="250" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);" />
+  <img src="vignettes/zh_gi.jpg" width="300" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);" />
 </p>
 
 # greenR: Urban Environmental Analytics for R
 
 **Quantify. Analyze. Visualize.**
 
-greenR is an open-source R package for quantifying, analyzing, and visualizing urban greenness. It integrates OpenStreetMap, satellite imagery, population grids, and canopy height models into a unified analytical pipeline — from street-segment greenness scoring to city-scale climate-responsive planting prioritization.
+`greenR` is an award-winning open-source R package for quantifying, analyzing, and visualizing urban greenness and microclimate priorities. It integrates OpenStreetMap, satellite imagery, population grids, and canopy height models into a unified analytical pipeline — from street-segment greenness scoring to city-scale climate-responsive planting prioritization.
 
-> ✨ *Winner of the [Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/) at the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich.*
+> ✨ *Winner of the **[Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/)** at the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich.*
 
 | Feature | Description |
 |---------|-------------|
@@ -42,29 +44,127 @@ greenR is an open-source R package for quantifying, analyzing, and visualizing u
 
 ---
 
-## Installation
+## 🏗️ Technical Architecture Pipeline
 
-```r
-install.packages("greenR")                                            # CRAN
-remotes::install_github("sachit27/greenR", dependencies = TRUE)       # GitHub dev
+GitHub natively renders the complete geocomputational layout of the `greenR` pipeline below:
+
+```mermaid
+graph TD
+    %% Styling Definitions
+    classDef input fill:#E1F5FE,stroke:#0288D1,stroke-width:2px,color:#01579B;
+    classDef core fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C;
+    classDef engine fill:#FFF9C4,stroke:#FBC02D,stroke-width:2px,color:#F57F17;
+    classDef output fill:#FCE4EC,stroke:#D81B60,stroke-width:2px,color:#880E4F;
+
+    %% Nodes Definition
+    subgraph Inputs ["1. Input Data Layer (Modes: Online, Local, Hybrid)"]
+        A1["OpenStreetMap (OSM)<br><i>Highways, Trees, Green Areas, Buildings</i>"]:::input
+        A2["Satellite STAC Endpoints<br><i>Landsat 8/9 LST, Sentinel-2 NDVI</i>"]:::input
+        A3["Global Canopy Models<br><i>Meta/WRI 1m GEDI v6 CHM</i>"]:::input
+        A4["Global Population Grids<br><i>JRC GHSL (100m Mollweide)</i>"]:::input
+        A5["Local File Overrides<br><i>Shapefiles, GeoJSON, Custom GeoTIFFs</i>"]:::input
+    end
+
+    subgraph Libraries ["2. Core R-Spatial Engines"]
+        L1["sf & sfnetworks<br><i>Vector Geometry & Graph Routing</i>"]:::core
+        L2["terra & tidyterra<br><i>Raster Analysis & Compositing</i>"]:::core
+        L3["osmdata<br><i>Overpass API Retrieval Interface</i>"]:::core
+        L4["h3jsr<br><i>H3 Hexagonal Spatial Indexing</i>"]:::core
+    end
+
+    subgraph Engines ["3. greenR Analytical Suites & Computations"]
+        E1["🌲 SVF 3D Engine<br><i>uh_svf()</i><br>Sky View Factor Canopy Obstruction"]:::engine
+        E2["🌡️ Urban Heat Decision Suite<br><i>uh_decision()</i><br>Bivariate Prioritization & Canyon Physics"]:::engine
+        E3["🌳 Green Index Engine<br><i>calculate_green_index()</i><br>Distance Decay Network Scoring"]:::engine
+        E4["🌴 Canopy Height Analyzer<br><i>chm_analysis()</i><br>Vertical Structure & Coverage Stats"]:::engine
+        E5["🚶 Accessibility Suite<br><i>analyze_green_accessibility()</i><br>Network Routing & Directional Radar"]:::engine
+        E6["📷 GVI Computer Vision<br><i>calculate_and_visualize_GVI()</i><br>Landscape Superpixel Segmentation"]:::engine
+        E7["⚖️ Similarity Index (GSSI)<br><i>gssi()</i><br>Cross-City Spatial Connectivity Metrics"]:::engine
+        E8["🌡️ Classical UHI Hotspots<br><i>analyze_and_visualize_uhi()</i><br>Getis-Ord Gi* & Moran's I"]:::engine
+    end
+
+    subgraph Outputs ["4. Multimodal Output & Visualization Layer"]
+        O1["3D Deck.gl WebGL Dashboards<br><i>Extruded 3D street & canopy explorers</i>"]:::output
+        O2["Interactive Leaflet Overlays<br><i>Multilayer spatial web maps</i>"]:::output
+        O3["Publication-Quality Plots<br><i>ggplot2 & tmap maps, Radar charts, Lorenz curves</i>"]:::output
+        O4["Standard GIS Formats<br><i>GeoJSON, GPKG, Shapefiles, GeoTIFF</i>"]:::output
+        O5["No-Code Shiny App<br><i>run_app() zero-code dashboard</i>"]:::output
+    end
+
+    %% Data Flow Connections
+    A1 & A2 & A3 & A4 --> L3 & L2 & L1
+    A5 --> L1 & L2
+    
+    L1 & L2 & L3 & L4 --> E1 & E2 & E3 & E4 & E5 & E6 & E7 & E8
+
+    E1 --> O1 & O2
+    E2 --> O1 & O2 & O3
+    E3 --> O2 & O3 & O4
+    E4 --> O2 & O3 & O4
+    E5 --> O2 & O3 & O4
+    E6 --> O3 & O4
+    E7 --> O3
+    E8 --> O2 & O3 & O4
+    
+    O1 & O2 & O3 & O4 --> O5
 ```
 
-<details>
-<summary>📋 <strong>Troubleshooting installation issues</strong></summary>
+---
 
-If you're updating from a previous version and encounter issues:
-```r
-remove.packages("greenR")
-.rs.restartR()
-devtools::install_github("sachit27/greenR", dependencies = TRUE, force = TRUE)
+## ⚙️ System Dependencies
+
+Because `greenR` leverages high-performance C++ geocomputational engines via `sf` and `terra`, it requires key spatial system libraries (`GDAL`, `GEOS`, `PROJ`) to be installed on your operating system prior to package installation.
+
+> [!IMPORTANT]
+> **Ensure system libraries are installed first:** If these libraries are missing from your PATH, R will fail to compile `sf` and `terra` from source.
+
+### 🍎 macOS (via Homebrew)
+Open your Terminal and run:
+```bash
+brew install gdal geos proj
 ```
 
-If the `osmdata` dependency fails from CRAN, install it directly:
-```r
-remotes::install_github("ropensci/osmdata")
+### 🐧 Ubuntu / Debian
+Install development libraries using `apt-get`:
+```bash
+sudo apt-get update
+sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev
 ```
 
-</details>
+### 🪟 Windows
+1. Download and install **[Rtools](https://cran.r-project.org/bin/windows/Rtools/)** matching your R version.
+2. Binary builds for `sf` and `terra` on CRAN include pre-compiled system libraries automatically.
+
+---
+
+## ⚡ Quick Start: Street Greenness in 15 Seconds
+
+You don't need local spatial files to start. Run the following code in R to automatically download street networks for the **City of London**, compute street-segment greenness with distance decay, and render an interactive dark-themed map:
+
+```R
+library(greenR)
+library(sf)
+
+# 1. Fetch street network and green spaces dynamically from OpenStreetMap
+city_data <- get_osm_data("City of London, UK")
+
+# 2. Compute street-segment Green Index with a 100m distance-decay parameter
+green_network <- calculate_green_index(city_data, crs_code = 4326, D = 100)
+
+# 3. Visualize the greenness of the street network interactively
+interactive_map <- plot_green_index(
+  green_network, 
+  interactive = TRUE, 
+  base_map = "CartoDB.DarkMatter"
+)
+
+# 4. Render the dynamic spatial web map
+print(interactive_map)
+```
+
+<p align="center">
+  <img src="vignettes/darkmode.jpg" width="100%" alt="London Street Greenness Output" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);" />
+</p>
 
 ---
 
@@ -75,11 +175,10 @@ remotes::install_github("ropensci/osmdata")
 *How much sky can a pedestrian actually see from the street — and where are the critical gaps in the urban canopy?*
 
 <p align="center">
-  <img src="vignettes/svf1.png" width="100%" alt="London SVF Overview" />
-</p>
-
-<p align="center">
-  <img src="vignettes/3d_svf.jpg" width="100%" alt="3D SVF Column Explorer" />
+  <img src="vignettes/3d_svf.jpg" width="49%" alt="3D SVF Column Explorer" />
+  <img src="vignettes/london_full_street_svf_static.jpg" width="49%" alt="London Street SVF Corridors" />
+  <br/>
+  <img src="vignettes/london_full_svf_distribution.jpg" width="60%" alt="London SVF Distribution" style="margin-top: 10px;" />
 </p>
 
 <details>
@@ -101,7 +200,7 @@ SVF is modeled geometrically as the fraction of visible sky from a pedestrian pe
 ---
 
 ### 🌐 Example 1: Purely Online Mode (Zero local data setup)
-Automatically downloads London street networks and Meta/WRI 1m GEDI canopy height data on-the-fly!
+Automatically downloads London street networks, terrain elevations, building vectors, and Meta/WRI 1m GEDI canopy height data on-the-fly!
 ```R
 library(greenR)
 
@@ -135,6 +234,7 @@ library(terra)
 # 1. Load local spatial layers and canopy rasters
 local_boundary <- sf::st_read("data/london_district_boundary.geojson")
 local_streets  <- sf::st_read("data/london_highway_lines.geojson")
+local_buildings <- sf::st_read("data/london_buildings.geojson")
 local_canopy   <- terra::rast("data/airborne_lidar_chm_1m.tif")
 
 # 2. Package street and environmental layers into local OSM list format
@@ -147,9 +247,12 @@ local_osm <- list(
 # 3. Run fully offline using local overrides
 svf_results <- uh_svf(
   city_name        = "Local SVF Analysis",
-  hex_size_m       = 50,
-  local_boundary   = local_boundary,
-  local_chm        = local_canopy,
+  boundary         = local_boundary,
+  terrain_source   = "local",
+  terrain_path     = "data/local_dem_10m.tif",
+  buildings_source = "local",
+  buildings_object = local_buildings,
+  canopy_object    = local_canopy,
   local_osm_layers = local_osm,
   include_leaflet  = TRUE,
   include_3d       = TRUE,
@@ -168,13 +271,15 @@ library(terra)
 my_lidar_chm <- terra::rast("data/municipal_lidar_dsm.tif")
 
 svf_results <- uh_svf(
-  city_name       = "Zurich, Switzerland",
-  hex_size_m      = 80,
-  local_chm       = my_lidar_chm,   # Overrides global GEDI CHM
-  include_leaflet = TRUE,
-  include_3d      = TRUE,
-  output_dir      = "./zurich_svf_hybrid",
-  output_prefix   = "zurich_hybrid"
+  city_name        = "Zurich, Switzerland",
+  terrain_source   = "elevatr",
+  buildings_source = "gba",
+  sample_mode      = "both",                  # Computes both street and building SVF for 3D mapping
+  canopy_object    = my_lidar_chm,            # Overrides global GEDI CHM with local raster
+  include_leaflet  = TRUE,
+  include_3d       = TRUE,
+  output_dir       = "./zurich_svf_hybrid",
+  output_prefix    = "zurich_hybrid"
 )
 ```
 
@@ -187,15 +292,10 @@ svf_results <- uh_svf(
 *We have limited budget — where do high thermal exposure and planting opportunities actually intersect?*
 
 <p align="center">
-  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="100%" alt="New Delhi Action Classes" />
-</p>
-
-<p align="center">
-  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="100%" alt="New Delhi Hybrid Priority Field" />
-</p>
-
-<p align="center">
-  <img src="vignettes/urban_heat1.png" width="100%" alt="Zurich Street Canyon Priorities" />
+  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="49%" alt="New Delhi Action Classes" />
+  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="49%" alt="New Delhi Hybrid Priority Field" />
+  <br/>
+  <img src="vignettes/urban_heat1.png" width="60%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
 </p>
 
 <details>
@@ -588,11 +688,8 @@ result$lorenz_plot # Lorenz curve
 *How far does every resident have to walk to reach the nearest green space — and does it vary by direction?*
 
 <p align="center">
-  <img src="vignettes/access.jpg" width="80%" alt="Directional Accessibility" />
-</p>
-
-<p align="center">
-  <img src="vignettes/isochrone.jpg" width="80%" alt="Isochrone Access" />
+  <img src="vignettes/access.jpg" width="48%" alt="Directional Accessibility" />
+  <img src="vignettes/isochrone.jpg" width="48%" alt="Isochrone Access" />
 </p>
 
 <details>

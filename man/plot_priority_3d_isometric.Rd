@@ -2,7 +2,7 @@
 % Please edit documentation in R/uh_decision.R
 \name{plot_priority_3d_isometric}
 \alias{plot_priority_3d_isometric}
-\title{Generate a WRI-style 3D land-surface-temperature isometric mesh map.}
+\title{Generate a 3D land-surface-temperature isometric mesh map.}
 \usage{
 plot_priority_3d_isometric(
   priority_data,
