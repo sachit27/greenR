@@ -128,10 +128,15 @@ browseURL("./london_svf_outputs/london_full_3d_explorer.html")
 *We have limited budget — where do high thermal exposure and planting opportunities actually intersect?*
 
 <p align="center">
-  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="49%" alt="New Delhi Action Classes" />
-  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="49%" alt="New Delhi Hybrid Priority Field" />
-  <br/>
-  <img src="vignettes/urban_heat1.png" width="60%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
+  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="100%" alt="New Delhi Action Classes" />
+</p>
+
+<p align="center">
+  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="100%" alt="New Delhi Hybrid Priority Field" />
+</p>
+
+<p align="center">
+  <img src="vignettes/urban_heat1.png" width="100%" alt="Zurich Street Canyon Priorities" />
 </p>
 
 <details>
