@@ -44,73 +44,6 @@
 
 ---
 
-## 🏗️ Technical Architecture Pipeline
-
-GitHub natively renders the complete geocomputational layout of the `greenR` pipeline below:
-
-```mermaid
-graph TD
-    %% Styling Definitions
-    classDef input fill:#E1F5FE,stroke:#0288D1,stroke-width:2px,color:#01579B;
-    classDef core fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#4A148C;
-    classDef engine fill:#FFF9C4,stroke:#FBC02D,stroke-width:2px,color:#F57F17;
-    classDef output fill:#FCE4EC,stroke:#D81B60,stroke-width:2px,color:#880E4F;
-
-    %% Nodes Definition
-    subgraph Inputs ["1. Input Data Layer (Modes: Online, Local, Hybrid)"]
-        A1["OpenStreetMap (OSM)<br><i>Highways, Trees, Green Areas, Buildings</i>"]:::input
-        A2["Satellite STAC Endpoints<br><i>Landsat 8/9 LST, Sentinel-2 NDVI</i>"]:::input
-        A3["Global Canopy Models<br><i>Meta/WRI 1m GEDI v6 CHM</i>"]:::input
-        A4["Global Population Grids<br><i>JRC GHSL (100m Mollweide)</i>"]:::input
-        A5["Local File Overrides<br><i>Shapefiles, GeoJSON, Custom GeoTIFFs</i>"]:::input
-    end
-
-    subgraph Libraries ["2. Core R-Spatial Engines"]
-        L1["sf & sfnetworks<br><i>Vector Geometry & Graph Routing</i>"]:::core
-        L2["terra & tidyterra<br><i>Raster Analysis & Compositing</i>"]:::core
-        L3["osmdata<br><i>Overpass API Retrieval Interface</i>"]:::core
-        L4["h3jsr<br><i>H3 Hexagonal Spatial Indexing</i>"]:::core
-    end
-
-    subgraph Engines ["3. greenR Analytical Suites & Computations"]
-        E1["🌲 SVF 3D Engine<br><i>uh_svf()</i><br>Sky View Factor Canopy Obstruction"]:::engine
-        E2["🌡️ Urban Heat Decision Suite<br><i>uh_decision()</i><br>Bivariate Prioritization & Canyon Physics"]:::engine
-        E3["🌳 Green Index Engine<br><i>calculate_green_index()</i><br>Distance Decay Network Scoring"]:::engine
-        E4["🌴 Canopy Height Analyzer<br><i>chm_analysis()</i><br>Vertical Structure & Coverage Stats"]:::engine
-        E5["🚶 Accessibility Suite<br><i>analyze_green_accessibility()</i><br>Network Routing & Directional Radar"]:::engine
-        E6["📷 GVI Computer Vision<br><i>calculate_and_visualize_GVI()</i><br>Landscape Superpixel Segmentation"]:::engine
-        E7["⚖️ Similarity Index (GSSI)<br><i>gssi()</i><br>Cross-City Spatial Connectivity Metrics"]:::engine
-        E8["🌡️ Classical UHI Hotspots<br><i>analyze_and_visualize_uhi()</i><br>Getis-Ord Gi* & Moran's I"]:::engine
-    end
-
-    subgraph Outputs ["4. Multimodal Output & Visualization Layer"]
-        O1["3D Deck.gl WebGL Dashboards<br><i>Extruded 3D street & canopy explorers</i>"]:::output
-        O2["Interactive Leaflet Overlays<br><i>Multilayer spatial web maps</i>"]:::output
-        O3["Publication-Quality Plots<br><i>ggplot2 & tmap maps, Radar charts, Lorenz curves</i>"]:::output
-        O4["Standard GIS Formats<br><i>GeoJSON, GPKG, Shapefiles, GeoTIFF</i>"]:::output
-        O5["No-Code Shiny App<br><i>run_app() zero-code dashboard</i>"]:::output
-    end
-
-    %% Data Flow Connections
-    A1 & A2 & A3 & A4 --> L3 & L2 & L1
-    A5 --> L1 & L2
-    
-    L1 & L2 & L3 & L4 --> E1 & E2 & E3 & E4 & E5 & E6 & E7 & E8
-
-    E1 --> O1 & O2
-    E2 --> O1 & O2 & O3
-    E3 --> O2 & O3 & O4
-    E4 --> O2 & O3 & O4
-    E5 --> O2 & O3 & O4
-    E6 --> O3 & O4
-    E7 --> O3
-    E8 --> O2 & O3 & O4
-    
-    O1 & O2 & O3 & O4 --> O5
-```
-
----
-
 ## ⚙️ System Dependencies
 
 Because `greenR` leverages high-performance C++ geocomputational engines via `sf` and `terra`, it requires key spatial system libraries (`GDAL`, `GEOS`, `PROJ`) to be installed on your operating system prior to package installation.
@@ -139,7 +72,7 @@ sudo apt-get install -y libgdal-dev libgeos-dev libproj-dev libudunits2-dev
 
 ## ⚡ Quick Start: Street Greenness in 15 Seconds
 
-You don't need local spatial files to start. Run the following code in R to automatically download street networks for the **City of London**, compute street-segment greenness with distance decay, and render an interactive dark-themed map:
+You don't need local spatial files to start. Run the following code in R to automatically download street networks, compute street-segment greenness with distance decay, and render an interactive dark-themed map:
 
 ```R
 library(greenR)
@@ -163,7 +96,7 @@ print(interactive_map)
 ```
 
 <p align="center">
-  <img src="vignettes/darkmode.jpg" width="100%" alt="London Street Greenness Output" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);" />
+  <img src="vignettes/darkmode.jpg" width="100%" alt="Street Greenness Output" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);" />
 </p>
 
 ---
@@ -175,10 +108,11 @@ print(interactive_map)
 *How much sky can a pedestrian actually see from the street — and where are the critical gaps in the urban canopy?*
 
 <p align="center">
-  <img src="vignettes/3d_svf.jpg" width="49%" alt="3D SVF Column Explorer" />
-  <img src="vignettes/london_full_street_svf_static.jpg" width="49%" alt="London Street SVF Corridors" />
+  <img src="vignettes/3d_svf.jpg" width="100%" alt="3D SVF Column Explorer" />
   <br/>
-  <img src="vignettes/london_full_svf_distribution.jpg" width="60%" alt="London SVF Distribution" style="margin-top: 10px;" />
+  <img src="vignettes/london_full_street_svf_static.jpg" width="100%" alt="London Street SVF Corridors" />
+  <br/>
+  <img src="vignettes/london_full_svf_distribution.jpg" width="100%" alt="London SVF Distribution" style="margin-top: 10px;" />
 </p>
 
 <details>
@@ -292,10 +226,11 @@ svf_results <- uh_svf(
 *We have limited budget — where do high thermal exposure and planting opportunities actually intersect?*
 
 <p align="center">
-  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="49%" alt="New Delhi Action Classes" />
-  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="49%" alt="New Delhi Hybrid Priority Field" />
+  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="100%" alt="New Delhi Action Classes" />
   <br/>
-  <img src="vignettes/urban_heat1.png" width="60%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
+  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="100%" alt="New Delhi Hybrid Priority Field" />
+  <br/>
+  <img src="vignettes/urban_heat1.png" width="100%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
 </p>
 
 <details>
@@ -493,7 +428,13 @@ results <- uh_decision(
 
 *What is the relative greenness of every street segment in a city?*
 
-![Map](/vignettes/darkmode.jpg)
+<p align="center">
+  <img src="vignettes/leaflet.jpg" width="100%" alt="Leaflet Street Greenness Map" />
+  <br/>
+  <img src="https://github.com/sachit27/Accessibility-Analysis/blob/main/images/linestring.gif?raw=true" width="100%" alt="3D Linestring Map" />
+  <br/>
+  <img src="https://github.com/sachit27/Accessibility-Analysis/blob/main/images/hex3d.gif?raw=true" width="100%" alt="3D Hex Map" />
+</p>
 
 <details>
 <summary>🔬 <strong>Details & code</strong></summary>
@@ -568,7 +509,6 @@ This map is designed to visualize linear features such as roads, trails, or any 
 mapbox_token <- "your_mapbox_access_token_here"
 create_linestring_3D(green_index, "green_index", mapbox_token)
 ```
-![3D Linestring Map](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/linestring.gif)
 
 #### Customize Interactive Base Map (Leaflet version)
 In interactive mode, you can change the base map to various themes.
@@ -604,7 +544,6 @@ create_hexmap_3D(
   color_palette = "interpolateViridis"
 )
 ```
-![3D Hex Map](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/hex3d.gif)
 
 ---
 
@@ -626,7 +565,6 @@ These functions allow the user to download the green index values as a GeoJSON f
 save_json(green_index, "/path/to/map.geojson")
 save_as_leaflet(green_index, "/path/to/map.html")
 ```
-![Map](/vignettes/leaflet.jpg)
 
 </details>
 
@@ -688,8 +626,11 @@ result$lorenz_plot # Lorenz curve
 *How far does every resident have to walk to reach the nearest green space — and does it vary by direction?*
 
 <p align="center">
-  <img src="vignettes/access.jpg" width="48%" alt="Directional Accessibility" />
-  <img src="vignettes/isochrone.jpg" width="48%" alt="Isochrone Access" />
+  <img src="vignettes/access.jpg" width="100%" alt="Directional Accessibility" />
+  <br/>
+  <img src="vignettes/isochrone.jpg" width="100%" alt="Isochrone Access" />
+  <br/>
+  <img src="https://github.com/sachit27/Accessibility-Analysis/blob/main/images/access_mapbox.gif?raw=true" width="100%" alt="Access Mapbox" />
 </p>
 
 <details>
@@ -703,7 +644,6 @@ The `accessibility_mapbox` function creates an accessibility map using Mapbox GL
 mapbox_token <- "your_mapbox_access_token_here"
 accessibility_mapbox(green_areas_data, mapbox_token)
 ```
-![Access Mapbox](https://github.com/sachit27/Accessibility-Analysis/blob/main/images/access_mapbox.gif)
 
 #### Leaflet Version (Multi-Tier)
 The `accessibility_greenspace` function creates an interactive Leaflet map displaying accessible green spaces within a specified walking time from a provided location. It utilizes isochrones to visualize the areas reachable by 5, 10, and 15 minutes of walking. The function relies on pedestrian routing information and green space data to accurately delineate accessible areas. The default maximum walking time is set to 15 minutes but can be adjusted using the `max_walk_time` parameter.
@@ -776,7 +716,9 @@ viz$leaflet_map
 
 *Where are the thermal hotspots — and how do they correlate with green coverage and built density?*
 
-![Hotspot](/vignettes/hotspot.png)
+<p align="center">
+  <img src="vignettes/hotspot.png" width="100%" alt="UHI Hotspot Analysis" />
+</p>
 
 <details>
 <summary>🔬 <strong>Details & code</strong></summary>
@@ -826,7 +768,9 @@ result$export_results("zurich_uhi", formats = c("geojson", "csv", "gpkg", "shp")
 
 *What is the vertical structure of the urban tree canopy at 1-meter resolution?*
 
-![CHM](/vignettes/chm.jpg)
+<p align="center">
+  <img src="vignettes/chm.jpg" width="100%" alt="Canopy Height Model" />
+</p>
 
 <details>
 <summary>🔬 <strong>Details & code</strong></summary>
@@ -865,7 +809,9 @@ browseURL(result$mapview_file) # Interactive web map (HTML)
 
 *What proportion of the visible streetscape is vegetation?*
 
-![GVI](/vignettes/gvi.jpg)
+<p align="center">
+  <img src="vignettes/gvi.jpg" width="100%" alt="Green View Index" />
+</p>
 
 <details>
 <summary>🔬 <strong>Details & code</strong></summary>
@@ -933,7 +879,9 @@ gssi_values <- gssi(cities_data, "ESRI:54009")
 
 *Analyze urban greenness without writing a single line of code.*
 
-![Shiny](/vignettes/shiny.jpg)
+<p align="center">
+  <img src="vignettes/shiny.jpg" width="100%" alt="Shiny Web Application" />
+</p>
 
 <details>
 <summary>🔬 <strong>Details & usage</strong></summary>
