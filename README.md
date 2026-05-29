@@ -79,10 +79,11 @@ remotes::install_github("ropensci/osmdata")
 *How much sky can a pedestrian actually see from the street — and where are the critical gaps in the urban canopy?*
 
 <p align="center">
-  <img src="vignettes/3d_svf.jpg" width="49%" alt="3D SVF Column Explorer" />
-  <img src="vignettes/london_full_street_svf_static.jpg" width="49%" alt="London Street SVF Corridors" />
-  <br/>
-  <img src="vignettes/london_full_svf_distribution.jpg" width="60%" alt="London SVF Distribution" style="margin-top: 10px;" />
+  <img src="vignettes/svf1.png" width="100%" alt="London SVF Overview" />
+</p>
+
+<p align="center">
+  <img src="vignettes/3d_svf.jpg" width="100%" alt="3D SVF Column Explorer" />
 </p>
 
 <details>
