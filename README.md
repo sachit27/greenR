@@ -24,6 +24,20 @@
 
 `greenR` is an award-winning open-source R package for quantifying, analyzing, and visualizing urban greenness and microclimate priorities. It integrates OpenStreetMap, satellite imagery, population grids, and canopy height models into a unified analytical pipeline — from street-segment greenness scoring to city-scale climate-responsive planting prioritization.
 
+## Which Function Should I Use?
+
+Use the function that matches your task:
+
+- `calculate_green_index()` for street-level greenness scores from OSM network data.
+- `uh_svf()` for sky-view factor analysis using terrain, buildings, canopy, and street/grid ray-casting.
+- `uh_decision()` for the full urban heat and planting-priority workflow, including optional local population rasters such as GHSL.
+
+In short:
+
+- If you want a green street metric, use `calculate_green_index()`.
+- If you want geometry-based visibility and canyon exposure, use `uh_svf()`.
+- If you want a multi-layer priority analysis that can weight population, use `uh_decision()`.
+
 > ✨ *Winner of the **[Prix Carto 2025 – Edu category](https://kartografie.ch/category/prixcarto/)** at the celebration of 100 years of the Institute of Cartography and Geoinformation at ETH Zurich.*
 
 | Feature | Description |
@@ -142,10 +156,10 @@ print(interactive_map)
 
 ### What it computes
 ```
-Sky View Factor (SVF) = 1 − (Canopy Density + Built Obstruction Proxy)
+Sky View Factor (SVF) = mean(cos^2(horizon_angle)) across sampled ray directions
 ```
 
-SVF is modeled geometrically as the fraction of visible sky from a pedestrian perspective. A **low SVF** (near 0) indicates a highly closed canopy or deep street canyon, offering maximum shade. A **high SVF** (near 1) indicates full sky exposure, maximizing direct solar radiation.
+SVF is modeled geometrically as the fraction of visible sky from a pedestrian perspective. The implementation ray-casts in multiple directions from each sample point, measures the horizon angle in each direction, and aggregates those angles into a mean cosine-squared SVF estimate. A **low SVF** (near 0) indicates a highly closed canopy or deep street canyon, offering maximum shade. A **high SVF** (near 1) indicates full sky exposure, maximizing direct solar radiation.
 
 ### What it produces
 - **3D Deck.gl WebGL dashboards** — Fly through neighborhoods, inspect vertical canopy structures, toggle tree layers
@@ -180,8 +194,8 @@ svf_results <- uh_svf(
 browseURL("./london_svf_outputs/london_full_svf_3d_explorer.html")
 ```
 
-### 📂 Example 2: Completely Local / Offline Mode (For secure or custom datasets)
-Perfect for using proprietary municipal shapefiles, building footprints, and custom airborne LiDAR rasters without any internet requests.
+### 📂 Example 2: Local Boundary, Buildings, and Canopy Inputs
+Perfect for using proprietary municipal shapefiles, building footprints, and custom airborne LiDAR rasters while keeping the rest of the SVF workflow unchanged.
 ```R
 library(greenR)
 library(sf)
@@ -189,18 +203,10 @@ library(terra)
 
 # 1. Load local spatial layers and canopy rasters
 local_boundary <- sf::st_read("data/london_district_boundary.geojson")
-local_streets  <- sf::st_read("data/london_highway_lines.geojson")
 local_buildings <- sf::st_read("data/london_buildings.geojson")
 local_canopy   <- terra::rast("data/airborne_lidar_chm_1m.tif")
 
-# 2. Package street and environmental layers into local OSM list format
-local_osm <- list(
-  highways    = list(osm_lines    = local_streets),
-  green_areas = list(osm_polygons = sf::st_read("data/parks.geojson")),
-  trees       = list(osm_points   = sf::st_read("data/trees.geojson"))
-)
-
-# 3. Run fully offline using local overrides
+# 2. Run with local terrain, building, and canopy overrides
 svf_results <- uh_svf(
   city_name        = "Local SVF Analysis",
   boundary         = local_boundary,
@@ -209,7 +215,6 @@ svf_results <- uh_svf(
   buildings_source = "local",
   buildings_object = local_buildings,
   canopy_object    = local_canopy,
-  local_osm_layers = local_osm,
   include_leaflet  = TRUE,
   include_3d       = TRUE,
   output_dir       = "./london_svf_offline",
@@ -218,7 +223,7 @@ svf_results <- uh_svf(
 ```
 
 ### ⚡ Example 3: Hybrid Mode (Online streets + local LiDAR DSM)
-Let greenR fetch the street network dynamically from OpenStreetMap, but override the tree canopy dataset with your own ultra-high-resolution municipal LiDAR raster.
+Let greenR fetch the street network dynamically from OpenStreetMap, but override the canopy dataset with your own ultra-high-resolution municipal LiDAR raster.
 ```R
 library(greenR)
 library(terra)
