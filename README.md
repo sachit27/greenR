@@ -110,13 +110,10 @@ print(interactive_map)
 <p align="center">
   <img src="vignettes/3d_svf.jpg" width="100%" alt="3D SVF Column Explorer" />
   <br/>
-  <img src="vignettes/london_full_street_svf_static.jpg" width="100%" alt="London Street SVF Corridors" />
-  <br/>
-  <img src="vignettes/london_full_svf_distribution.jpg" width="100%" alt="London SVF Distribution" style="margin-top: 10px;" />
+  <img src="vignettes/svf1.png" width="100%" alt="Sky View Factor Analysis" style="margin-top: 10px;" />
 </p>
 
-<details>
-<summary>🔬 <strong>Methodology, outputs & multi-mode code examples</strong></summary>
+### 🔬 Methodology, outputs & multi-mode code examples
 
 ### What it computes
 ```
@@ -217,7 +214,6 @@ svf_results <- uh_svf(
 )
 ```
 
-</details>
 
 ---
 
@@ -233,8 +229,7 @@ svf_results <- uh_svf(
   <img src="vignettes/urban_heat1.png" width="100%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
 </p>
 
-<details>
-<summary>🔬 <strong>Methodology, outputs & code examples</strong></summary>
+### 🔬 Methodology, outputs & code examples
 
 ### Bivariate Diamond Prioritization
 The engine maps spatial "Need" (heat exposure × population) and "Opportunity" (lack of canopy and vegetation) into a **45-degree rotated 3×3 diamond bivariate matrix**:
@@ -267,15 +262,25 @@ The framework implements physical, pedestrian-scale street canyon priority index
 - **Interactive multilayer Leaflet** — Toggleable overlays of all analysis layers
 
 ### Example 1: Full City (Online Mode)
+Run the complete UHI planting prioritization suite dynamically using purely online spatial data:
 ```R
 library(greenR)
 
 results <- uh_decision(
-  city_name    = "Basel, Switzerland",
-  hex_size_m   = 100,
-  output_dir   = "./basel_outputs",
-  output_prefix = "basel"
+  city_name       = "Zurich, Switzerland",   # Fetches boundary automatically from OSM
+  hex_size_m      = 100,                     # 100m hexagon spatial resolution
+  use_cache       = TRUE,                    # Caches on-the-fly downloads to avoid re-fetching
+  include_leaflet = TRUE,                    # Builds interactive multilayer Leaflet map
+  include_3d      = TRUE,                    # Builds 3D WebGL explorers (neighborhood & hex grid columns)
+  include_gis     = TRUE,                    # Exports raw spatial data (GeoPackage, GeoJSON)
+  output_dir      = "./zurich_outputs",      # Save all files in this directory
+  output_prefix   = "zurich_full"            # Prefix for generated files
 )
+
+# Open interactive explorers in your browser:
+utils::browseURL("./zurich_outputs/zurich_full_multilayer_leaflet.html")
+utils::browseURL("./zurich_outputs/zurich_full_3d_explorer.html")
+utils::browseURL("./zurich_outputs/zurich_full_3d_hex_explorer.html")
 ```
 
 ### Example 2: Bounding Box with Local Population Data
@@ -312,7 +317,6 @@ results <- uh_decision(
 )
 ```
 
-</details>
 
 ---
 
@@ -436,8 +440,7 @@ results <- uh_decision(
   <img src="https://github.com/sachit27/Accessibility-Analysis/blob/main/images/hex3d.gif?raw=true" width="100%" alt="3D Hex Map" />
 </p>
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Specify the Location and Download the Data
 
@@ -566,7 +569,6 @@ save_json(green_index, "/path/to/map.geojson")
 save_as_leaflet(green_index, "/path/to/map.html")
 ```
 
-</details>
 
 ---
 
@@ -576,8 +578,7 @@ save_as_leaflet(green_index, "/path/to/map.html")
 
 ![Green_Areas and Clusters](/vignettes/vis.jpg)
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Visualize & Cluster Green Spaces
 
@@ -617,7 +618,6 @@ result$analytics  # Summary statistics and Gini index
 result$lorenz_plot # Lorenz curve
 ```
 
-</details>
 
 ---
 
@@ -633,8 +633,7 @@ result$lorenz_plot # Lorenz curve
   <img src="https://github.com/sachit27/Accessibility-Analysis/blob/main/images/access_mapbox.gif?raw=true" width="100%" alt="Access Mapbox" />
 </p>
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Isochrone-Based Accessibility
 
@@ -708,7 +707,6 @@ viz$leaflet_map
 
 > ⚠️ **Note on edge effects:** Grid cells located near the edges of the study area (city boundary or data clipping line) may show artificially high distances to the nearest green space. This is because green spaces located just outside the analysis boundary are not included in the calculation, leading to “edge effects” where accessibility is underestimated at the margins. To mitigate this, consider expanding the analysis boundary or including green spaces from a buffer area surrounding the city. Alternatively, interpret results for boundary cells with caution.
 
-</details>
 
 ---
 
@@ -720,8 +718,7 @@ viz$leaflet_map
   <img src="vignettes/hotspot.png" width="100%" alt="UHI Hotspot Analysis" />
 </p>
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Urban Heat Island (UHI) Analysis
 
@@ -760,7 +757,6 @@ result$maps$scatter
 result$export_results("zurich_uhi", formats = c("geojson", "csv", "gpkg", "shp"))
 ```
 
-</details>
 
 ---
 
@@ -772,8 +768,7 @@ result$export_results("zurich_uhi", formats = c("geojson", "csv", "gpkg", "shp")
   <img src="vignettes/chm.jpg" width="100%" alt="Canopy Height Model" />
 </p>
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Canopy Height Model (CHM) Analysis with ALS GEDI Data
 
@@ -801,7 +796,6 @@ result$static_map              # Publication-ready map (tmap)
 browseURL(result$mapview_file) # Interactive web map (HTML)
 ```
 
-</details>
 
 ---
 
@@ -813,8 +807,7 @@ browseURL(result$mapview_file) # Interactive web map (HTML)
   <img src="vignettes/gvi.jpg" width="100%" alt="Green View Index" />
 </p>
 
-<details>
-<summary>🔬 <strong>Details & code</strong></summary>
+### 🔬 Details & code
 
 ### Green View Index
 
