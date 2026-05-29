@@ -79,9 +79,10 @@ remotes::install_github("ropensci/osmdata")
 *How much sky can a pedestrian actually see from the street — and where are the critical gaps in the urban canopy?*
 
 <p align="center">
-  <img src="vignettes/3d_svf.jpg" width="31%" alt="3D SVF Column Explorer" />
-  <img src="vignettes/london_full_street_svf_static.jpg" width="31%" alt="London Street SVF Corridors" />
-  <img src="vignettes/london_full_svf_distribution.jpg" width="31%" alt="London SVF Distribution" />
+  <img src="vignettes/3d_svf.jpg" width="49%" alt="3D SVF Column Explorer" />
+  <img src="vignettes/london_full_street_svf_static.jpg" width="49%" alt="London Street SVF Corridors" />
+  <br/>
+  <img src="vignettes/london_full_svf_distribution.jpg" width="60%" alt="London SVF Distribution" style="margin-top: 10px;" />
 </p>
 
 <details>
@@ -127,9 +128,10 @@ browseURL("./london_svf_outputs/london_full_3d_explorer.html")
 *We have limited budget — where do high thermal exposure and planting opportunities actually intersect?*
 
 <p align="center">
-  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="31%" alt="New Delhi Action Classes" />
-  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="31%" alt="New Delhi Hybrid Priority Field" />
-  <img src="vignettes/urban_heat1.png" width="31%" alt="Zurich Street Canyon Priorities" />
+  <img src="vignettes/newdelhi_decision_action_classes_hexagons.png" width="49%" alt="New Delhi Action Classes" />
+  <img src="vignettes/newdelhi_decision_hybrid_field_hexagons.png" width="49%" alt="New Delhi Hybrid Priority Field" />
+  <br/>
+  <img src="vignettes/urban_heat1.png" width="60%" alt="Zurich Street Canyon Priorities" style="margin-top: 10px;" />
 </p>
 
 <details>
