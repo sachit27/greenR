@@ -12,3 +12,10 @@
 ^doc$
 ^Meta$
 ^CRAN-SUBMISSION$
+^vignettes/svf1\.png$
+^vignettes/newdelhi_decision_hybrid_field_hexagons\.png$
+^vignettes/newdelhi_decision_action_classes_hexagons\.png$
+^vignettes/urban_heat1\.png$
+^vignettes/london_full_street_svf_static\.jpg$
+^vignettes/london_full_svf_distribution\.jpg$
+^vignettes/3d_svf\.jpg$
