@@ -41,6 +41,13 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #' }
 create_linestring_3D <- function(data, green_index_col, mapbox_token, output_file = "linestring_map.html",
                                  color_palette = "interpolateViridis", map_center = NULL, map_zoom = 11) {
+  if (!inherits(data, "sf") || !nrow(data) ||
+      !is.character(green_index_col) || length(green_index_col) != 1L ||
+      !green_index_col %in% names(data) ||
+      !is.numeric(data[[green_index_col]]) ||
+      !any(is.finite(data[[green_index_col]])))
+    stop("data must be a nonempty sf layer with a numeric index column.",
+         call. = FALSE)
 
   # Transform data to WGS 84 (EPSG:4326)
   data <- sf::st_transform(data, 4326)
@@ -268,11 +275,10 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
 </html>
 ', green_index_col, mapbox_token, map_center[1], map_center[2], map_zoom, data_json, min_value, max_value, color_palette, green_index_col, green_index_col, green_index_col)
 
-  # Conditionally write the HTML content and open the file if interactive
+  # Save in both interactive and scripted sessions.
+  writeLines(html_content, output_file)
+  message("Linestring Map has been created: ", output_file)
   if (interactive()) {
-    writeLines(html_content, output_file)
-    message("Linestring Map has been created: ", output_file)
-
     # Automatically open the map in RStudio Viewer if available
     if (rstudioapi::isAvailable()) {
       rstudioapi::viewer(output_file)
@@ -283,4 +289,3 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
 
   invisible(NULL)
 }
-

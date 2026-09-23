@@ -12,7 +12,8 @@ accessibility_greenspace(
   green_color = "green",
   location_color = "blue",
   isochrone_color = "viridis",
-  output_file = NULL
+  output_file = NULL,
+  osrm_server = "https://routing.openstreetmap.de/routed-foot/"
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ accessibility_greenspace(
 \item{isochrone_color}{Color palette for the isochrone lines. Default is "viridis".}
 
 \item{output_file}{Path and filename for the output geopackage. If NULL (default), no file is exported.}
+
+\item{osrm_server}{URL of an OSRM server with a foot routing graph.}
 }
 \value{
 A list containing a leaflet map object and the spatial data (sf objects).
@@ -41,9 +44,8 @@ a specified walking time from a given location. It also exports the spatial data
 as a geopackage file for use in GIS software like QGIS.
 }
 \details{
-Note: This function requires an OSRM server for isochrone computation. By default,
-it uses the public OSRM API, which requires internet access. During CRAN checks
-and non-interactive sessions, the function will halt to prevent unintended web requests.
+This function requires an OSRM server with a walking profile and internet
+access when using the default public server.
 }
 \examples{
 \dontrun{

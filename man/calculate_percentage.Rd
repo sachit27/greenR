@@ -10,7 +10,8 @@ calculate_percentage(green_index_data)
 \item{green_index_data}{A data frame containing the calculated green index values for each edge.}
 }
 \value{
-A data frame with the percentage of each green index category.
+A data frame with counts and percentages for all three categories.
+Missing or non-finite index values are excluded from the denominator.
 }
 \description{
 This function calculates the percentage of edges within each green index category.

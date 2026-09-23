@@ -523,9 +523,7 @@ data <- get_osm_data("Basel, Switzerland")
 
 ### Calculate the Green Index
 
-This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter D for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. The CRS affects how distances, areas, and other measurements are calculated. Different CRSs may represent the Earth's surface in ways that either exaggerate or minimize certain dimensions. So, using the wrong CRS can lead to incorrect calculations and analyses. If you're focusing on a city or other localized area, you'll likely want to use a CRS that is tailored to that specific location. This could be a local city grid system or other local CRS that has been designed to minimize distortions in that area. 
-
-This function then defines distance decay functions for green areas and trees using the parameter D. For each edge in the highway data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter in meters) but it can be changed by the user. Similarly, the users must specify the CRS (https://epsg.io/). The green index ranges from 0 to 1 and it represents the relative greenness of each section, factoring in proximity to green spaces and tree density.
+This function scores each street segment by its distance to the nearest green area and tree within `buffer_distance` metres. The parameter `D` controls exponential distance decay and defaults to 100 metres. Missing green areas or trees contribute zero. Scores are scaled from 0 to 1 across the supplied streets. Pass the desired output CRS; with a geographic CRS such as EPSG:4326, the function uses a local metric CRS for distance calculations and transforms the result back.
 
 ```R
 green_index <- calculate_green_index(data, 4326, 100)
@@ -535,7 +533,7 @@ green_index <- calculate_green_index(data, 4326, 100)
 
 ### Create the Green Index Plot
 
-This function visualizes the green index on a map, with options for both static and interactive display. Interactive maps are rendered using Leaflet and Mapbox, allowing users to zoom, pan, and interact with the map to explore the green index in more detail.
+This function visualizes the green index as a static ggplot or an interactive Leaflet map.
 
 #### Features
 - **Dynamic Mapping**: Create interactive, dynamic maps for a more engaging and detailed visualization.

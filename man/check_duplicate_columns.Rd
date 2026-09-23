@@ -7,7 +7,7 @@
 check_duplicate_columns(df)
 }
 \arguments{
-\item{df}{A data.frame. The input data frame to check for duplicate columns.}
+\item{df}{A data.frame.}
 }
 \description{
 Helper function to check for duplicate columns

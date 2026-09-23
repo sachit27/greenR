@@ -11,11 +11,12 @@ nearest_greenspace(
   location_lon,
   green_space_types = NULL,
   walking_speed_kmh = 4.5,
-  osrm_server = "https://router.project-osrm.org/"
+  osrm_server = "https://routing.openstreetmap.de/routed-foot/"
 )
 }
 \arguments{
-\item{highway_data}{List containing road network data, typically obtained from OpenStreetMap.}
+\item{highway_data}{Retained for API compatibility; routing is obtained
+from the OSRM server.}
 
 \item{green_areas_data}{List containing green areas data, obtained from \code{get_osm_data}.}
 
@@ -27,7 +28,7 @@ nearest_greenspace(
 
 \item{walking_speed_kmh}{Numeric, walking speed in kilometers per hour, default is 4.5.}
 
-\item{osrm_server}{URL of the OSRM routing server with foot routing support, default is "https://router.project-osrm.org/".}
+\item{osrm_server}{URL of an OSRM server with a foot routing graph.}
 }
 \value{
 A Leaflet map object showing the route, start point, and nearest green space with popup annotations.

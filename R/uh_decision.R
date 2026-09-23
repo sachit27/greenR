@@ -3020,10 +3020,11 @@ build_urban_block_priority <- function(
 }
 
 .gini_unweighted <- function(x) {
-  x <- x[!is.na(x)]
+  x <- x[is.finite(x)]
   n <- length(x)
   if (n < 2) return(0)
   x <- sort(x)
+  if (sum(x) == 0) return(0)
   sum(x * (2 * seq_len(n) - n - 1)) / (n * sum(x))
 }
 
@@ -3031,8 +3032,15 @@ build_urban_block_priority <- function(
 #'
 #' @param data_vector Numeric vector of values to calculate Gini for.
 #' @param R Number of bootstrap replicates.
+#' @return A list with the Gini value and bootstrap confidence interval.
 #' @export
 compute_gini_bootstrap <- function(data_vector, R = 100) {
+  if (!is.numeric(data_vector) || !length(data_vector) ||
+      any(!is.finite(data_vector)) || any(data_vector < 0))
+    stop("data_vector must contain finite, nonnegative numbers.", call. = FALSE)
+  if (!is.numeric(R) || length(R) != 1L || !is.finite(R) ||
+      R < 1 || R != as.integer(R))
+    stop("R must be a positive integer.", call. = FALSE)
   val <- .gini_unweighted(data_vector)
   boot_dist <- replicate(R, .gini_unweighted(sample(data_vector, replace = TRUE)))
   ci <- quantile(boot_dist, probs = c(0.025, 0.975), na.rm = TRUE)
@@ -3693,5 +3701,3 @@ save_3d_deckgl_dashboard <- function(priority_data, output_file, render_type = c
   writeLines(html_template, output_file)
   message(sprintf("[3D] Saved 3D Deck.gl dashboard successfully to: %s", output_file))
 }
-
-

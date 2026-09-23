@@ -31,7 +31,9 @@ accessibility_mapbox <- function(green_area_data, mapbox_token, output_file = "a
     stop("Invalid green_area_data provided. It should be a non-null sf object.")
   }
 
-  osm_sf <- green_area_data$osm_polygons
+  osm_sf <- sf::st_transform(green_area_data$osm_polygons, 4326)
+  if (!nrow(osm_sf))
+    stop("green_area_data contains no polygons.", call. = FALSE)
 
   # Calculate the center of the bounding box
   bbox <- sf::st_bbox(osm_sf)

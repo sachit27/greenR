@@ -57,7 +57,6 @@ create_accessibility_visualizations <- function(
   grid <- results$grid
   if (!inherits(grid, "sf")) stop("Grid must be an sf object.")
   if (!"distance" %in% names(grid)) stop("Missing 'distance' column in grid.")
-  sf::st_geometry(grid) <- "x"
   summary_stats <- results$summary
 
   # --- 2. Distance-based accessibility map (static) ---

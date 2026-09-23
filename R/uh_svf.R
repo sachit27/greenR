@@ -728,6 +728,9 @@ uh_svf <- function(
 #' }
 #' @export
 uh_svf_plot_skyline <- function(points_sf, point_id, title = NULL) {
+  if (!inherits(points_sf, "sf") ||
+      !all(c("point_id", "svf") %in% names(points_sf)))
+    stop("points_sf must contain point_id and svf columns.", call. = FALSE)
   if (!"horizon_angles" %in% names(points_sf)) {
     stop("Skyline plotting requires points calculated with return_raw_angles=TRUE.", call. = FALSE)
   }
@@ -739,6 +742,8 @@ uh_svf_plot_skyline <- function(points_sf, point_id, title = NULL) {
   
   angles_rad <- pt$horizon_angles[[1]]
   n_dirs <- length(angles_rad)
+  if (!n_dirs || any(!is.finite(angles_rad)))
+    stop("The selected point has no valid horizon angles.", call. = FALSE)
   azimuth_deg <- seq(0, 360 - 360 / n_dirs, length.out = n_dirs)
   elevation_deg <- angles_rad * 180 / pi
   
@@ -806,7 +811,12 @@ uh_svf_plot_skyline <- function(points_sf, point_id, title = NULL) {
 #' }
 #' @export
 uh_svf_plot_distribution <- function(street_summary, title = NULL) {
+  if (!is.data.frame(street_summary) ||
+      !"svf_mean" %in% names(street_summary))
+    stop("street_summary must contain svf_mean.", call. = FALSE)
   vals <- street_summary$svf_mean[is.finite(street_summary$svf_mean)]
+  if (!length(vals))
+    stop("street_summary has no finite svf_mean values.", call. = FALSE)
   n <- length(vals)
   mean_val <- mean(vals)
   med_val <- stats::median(vals)
@@ -1555,7 +1565,7 @@ function toggleTheme(){
   buildings <- buildings |>
     sf::st_transform(processing_crs) |>
     sf::st_make_valid()
-  buildings <- .uh_svf_duckdb_spatial_intersection(buildings, analysis_area, processing_crs)
+  buildings <- .uh_svf_spatial_intersection(buildings, analysis_area, processing_crs)
   buildings <- buildings[sf::st_geometry_type(buildings) %in% c("POLYGON", "MULTIPOLYGON"), ]
   buildings <- buildings[!sf::st_is_empty(buildings), ]
   if (nrow(buildings) == 0) return(NULL)
@@ -1608,7 +1618,7 @@ function toggleTheme(){
   b <- b |>
     sf::st_transform(processing_crs) |>
     sf::st_make_valid()
-  b <- .uh_svf_duckdb_spatial_intersection(b, analysis_area, processing_crs)
+  b <- .uh_svf_spatial_intersection(b, analysis_area, processing_crs)
   b <- b[sf::st_geometry_type(b) %in% c("POLYGON", "MULTIPOLYGON"), ]
   b <- b[!sf::st_is_empty(b), ]
   if (nrow(b) == 0) stop("No local buildings remain after clipping.", call. = FALSE)
@@ -1711,90 +1721,13 @@ function toggleTheme(){
   buildings
 }
 
-.uh_svf_duckdb_spatial_intersection <- function(sf_obj, analysis_area, crs_code) {
+.uh_svf_spatial_intersection <- function(sf_obj, analysis_area, crs_code) {
   if (is.null(sf_obj) || nrow(sf_obj) == 0) return(NULL)
-  
-  con <- tryCatch({
-    DBI::dbConnect(duckdb::duckdb())
-  }, error = function(e) NULL)
-  
-  if (is.null(con)) {
-    return(suppressWarnings(sf::st_intersection(sf_obj, sf::st_sf(geometry = analysis_area))))
-  }
-  
-  on.exit({
-    try(DBI::dbDisconnect(con, shutdown = TRUE), silent = TRUE)
-  })
-  
-  ext_ok <- tryCatch({
-    DBI::dbExecute(con, "LOAD spatial;")
-    TRUE
-  }, error = function(e) {
-    tryCatch({
-      DBI::dbExecute(con, "INSTALL spatial;")
-      DBI::dbExecute(con, "LOAD spatial;")
-      TRUE
-    }, error = function(e2) FALSE)
-  })
-  
-  if (!ext_ok) {
-    return(suppressWarnings(sf::st_intersection(sf_obj, sf::st_sf(geometry = analysis_area))))
-  }
-  
-  df <- sf::st_drop_geometry(sf_obj)
-  df$geom_wkt <- as.character(sf::st_as_text(sf::st_geometry(sf_obj)))
-  df$row_id <- seq_len(nrow(df))
-  
-  area_wkt <- as.character(sf::st_as_text(analysis_area))
-  
-  write_ok <- tryCatch({
-    DBI::dbWriteTable(con, "features", df, overwrite = TRUE)
-    DBI::dbExecute(con, "ALTER TABLE features ADD COLUMN geom GEOMETRY;")
-    DBI::dbExecute(con, "UPDATE features SET geom = ST_GeomFromText(geom_wkt);")
-    TRUE
-  }, error = function(e) FALSE)
-  
-  if (!write_ok) {
-    return(suppressWarnings(sf::st_intersection(sf_obj, sf::st_sf(geometry = analysis_area))))
-  }
-  
-  cols <- names(df)
-  cols <- cols[cols != "geom_wkt" & cols != "row_id"]
-  cols_select <- paste(cols, collapse = ", ")
-  
-  query <- sprintf("
-    SELECT %s, 
-           ST_AsText(ST_Intersection(ST_MakeValid(geom), ST_MakeValid(ST_GeomFromText('%s')))) as intersected_wkt
-    FROM features
-    WHERE ST_Intersects(ST_MakeValid(geom), ST_MakeValid(ST_GeomFromText('%s')))
-  ", cols_select, area_wkt, area_wkt)
-  
-  res <- tryCatch({
-    DBI::dbGetQuery(con, query)
-  }, error = function(e) {
-    message("[duckdb] Spatial query failed. Falling back to st_intersection: ", e$message)
-    NULL
-  })
-  
-  if (is.null(res)) {
-    return(suppressWarnings(sf::st_intersection(sf_obj, sf::st_sf(geometry = analysis_area))))
-  }
-  
-  if (nrow(res) == 0) {
-    return(sf_obj[0, ])
-  }
-  
-  res_sf <- tryCatch({
-    sf::st_as_sf(res, wkt = "intersected_wkt", crs = crs_code)
-  }, error = function(e) {
-    suppressWarnings(sf::st_intersection(sf_obj, sf::st_sf(geometry = analysis_area)))
-  })
-  
-  if ("intersected_wkt" %in% names(res_sf)) {
-    sf::st_geometry(res_sf) <- "geometry"
-  }
-  
-  res_sf
+  area <- sf::st_sf(geometry = analysis_area)
+  if (sf::st_crs(sf_obj) != sf::st_crs(area))
+    area <- sf::st_transform(area, sf::st_crs(sf_obj))
+  suppressWarnings(sf::st_intersection(sf::st_make_valid(sf_obj),
+                                        sf::st_make_valid(area)))
 }
 
 .uh_svf_get_canopy <- function(analysis_area, processing_crs, canopy_path = NULL, canopy_object = NULL, target_res = NULL) {

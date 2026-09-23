@@ -49,21 +49,24 @@ plot_green_index <- function(green_index_data,
                              interactive = FALSE,
                              filename = NULL) {
 
-  # Convert data to sf object and transform to long-lat
+  # Convert data to sf object and transform to long-lat for Leaflet
   edges_sf <- sf::st_as_sf(green_index_data)
-  edges_sf <- sf::st_transform(edges_sf, 4326)  # Transform to WGS 84 (long-lat)
+  if (!"green_index" %in% names(edges_sf))
+    stop("green_index_data must contain a green_index column.", call. = FALSE)
 
   # Create a color palette function
-  color_palette <- colorBin(palette = colors, domain = green_index_data$green_index)
+  color_palette <- leaflet::colorNumeric(palette = colors,
+                                         domain = edges_sf$green_index)
 
   if (interactive) {
+    edges_sf <- sf::st_transform(edges_sf, 4326)
     plot <- leaflet(data = edges_sf) %>%
-      addProviderTiles("CartoDB.DarkMatter", group = "Dark Matter") %>%
+      addProviderTiles(base_map, group = "Selected map") %>%
       addProviderTiles("CartoDB.Positron", group = "Positron") %>%
-      addPolylines(color = ~color_palette(green_index_data$green_index), weight = line_width) %>%
-      addLayersControl(baseGroups = c("Dark Matter", "Positron"),
+      addPolylines(color = ~color_palette(green_index), weight = line_width) %>%
+      addLayersControl(baseGroups = c("Selected map", "Positron"),
                        options = layersControlOptions(collapsed = FALSE)) %>%
-      addLegend(pal = color_palette, values = ~green_index_data$green_index,
+      addLegend(pal = color_palette, values = ~green_index,
                 title = legend_title, position = "bottomright")
 
     # Save the interactive map to a file if a filename is provided
@@ -92,5 +95,5 @@ plot_green_index <- function(green_index_data,
     }
   }
 
-  invisible()
+  plot
 }

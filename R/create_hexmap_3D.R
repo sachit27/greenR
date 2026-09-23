@@ -58,22 +58,8 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
   # Transform data to WGS 84 (EPSG:4326)
   data <- sf::st_transform(data, 4326)
 
-  # Function to convert geometries to points
-  convert_to_point <- function(geometry) {
-    geom_type <- sf::st_geometry_type(geometry)
-    if (geom_type == "POINT") {
-      return(geometry)
-    } else if (geom_type == "LINESTRING" || geom_type == "MULTILINESTRING") {
-      return(sf::st_point(sf::st_coordinates(geometry)[floor(nrow(sf::st_coordinates(geometry)) / 2), ]))
-    } else if (geom_type == "POLYGON" || geom_type == "MULTIPOLYGON") {
-      return(sf::st_centroid(geometry))
-    } else {
-      stop("Unsupported geometry type")
-    }
-  }
-
-  # Convert all geometries to points
-  data_points <- sf::st_sfc(lapply(sf::st_geometry(data), convert_to_point), crs = 4326)
+  # Use the same length-weighted line midpoint conversion as convert_to_point().
+  data_points <- sf::st_geometry(convert_to_point(data, target_crs = 4326))
 
   # Get coordinates and values
   coords <- sf::st_coordinates(data_points)

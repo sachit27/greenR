@@ -7,13 +7,14 @@ utils::globalVariables(c("landuse", "leisure"))
 #' shortest walking route using the road network optimized for walking. The result is visualized on a Leaflet map
 #' displaying the path, the starting location, and the destination green space, with details on distance and estimated walking time.
 #'
-#' @param highway_data List containing road network data, typically obtained from OpenStreetMap.
+#' @param highway_data Retained for API compatibility; routing is obtained
+#'   from the OSRM server.
 #' @param green_areas_data List containing green areas data, obtained from `get_osm_data`.
 #' @param location_lat Numeric, latitude of the starting location.
 #' @param location_lon Numeric, longitude of the starting location.
 #' @param green_space_types Vector of strings specifying types of green spaces to consider.
 #' @param walking_speed_kmh Numeric, walking speed in kilometers per hour, default is 4.5.
-#' @param osrm_server URL of the OSRM routing server with foot routing support, default is "https://router.project-osrm.org/".
+#' @param osrm_server URL of an OSRM server with a foot routing graph.
 #' @return A Leaflet map object showing the route, start point, and nearest green space with popup annotations.
 #' @importFrom sf st_as_sf st_transform st_coordinates st_centroid st_sfc st_point st_crs st_distance
 #' @importFrom leaflet leaflet addTiles addPolylines addMarkers addLegend makeAwesomeIcon
@@ -28,23 +29,34 @@ utils::globalVariables(c("landuse", "leisure"))
 #'   print(map) # Display the map
 #' }
 #' @export
-nearest_greenspace <- function(highway_data, green_areas_data, location_lat, location_lon, green_space_types = NULL, walking_speed_kmh = 4.5, osrm_server = "https://router.project-osrm.org/") {
-  # Set OSRM server and profile
-  options(osrm.server = osrm_server)
+nearest_greenspace <- function(highway_data, green_areas_data, location_lat, location_lon, green_space_types = NULL, walking_speed_kmh = 4.5, osrm_server = "https://routing.openstreetmap.de/routed-foot/") {
 
   # Validate inputs
-  if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
+  if (!is.numeric(location_lat) || length(location_lat) != 1L ||
+      !is.finite(location_lat) || location_lat < -90 || location_lat > 90) {
     stop("Invalid latitude provided. Latitude should be a numeric value between -90 and 90.")
   }
 
-  if (!is.numeric(location_lon) || location_lon < -180 || location_lon > 180) {
+  if (!is.numeric(location_lon) || length(location_lon) != 1L ||
+      !is.finite(location_lon) || location_lon < -180 || location_lon > 180) {
     stop("Invalid longitude provided. Longitude should be a numeric value between -180 and 180.")
   }
 
+  if (!is.numeric(walking_speed_kmh) || length(walking_speed_kmh) != 1L ||
+      !is.finite(walking_speed_kmh) || walking_speed_kmh <= 0)
+    stop("walking_speed_kmh must be positive.", call. = FALSE)
+  if (!is.list(green_areas_data) ||
+      !inherits(green_areas_data$osm_polygons, "sf") ||
+      !nrow(green_areas_data$osm_polygons))
+    stop("green_areas_data must contain nonempty osm_polygons.", call. = FALSE)
+
   # Filter green spaces if specific types are specified
   if (!is.null(green_space_types) && length(green_space_types) > 0) {
-    green_areas_data$osm_polygons <- green_areas_data$osm_polygons %>%
-      dplyr::filter(landuse %in% green_space_types | leisure %in% green_space_types)
+    spaces <- green_areas_data$osm_polygons
+    landuse <- if ("landuse" %in% names(spaces)) spaces$landuse else NA_character_
+    leisure <- if ("leisure" %in% names(spaces)) spaces$leisure else NA_character_
+    green_areas_data$osm_polygons <- spaces[
+      (landuse %in% green_space_types | leisure %in% green_space_types), ]
   }
 
   if (nrow(green_areas_data$osm_polygons) == 0) {
@@ -52,25 +64,29 @@ nearest_greenspace <- function(highway_data, green_areas_data, location_lat, loc
   }
 
   # Calculate centroids of green spaces
-  green_points <- sf::st_centroid(green_areas_data$osm_polygons)
+  green_points <- sf::st_point_on_surface(green_areas_data$osm_polygons)
 
   # Find the nearest green space
-  start_point <- sf::st_sfc(sf::st_point(c(location_lon, location_lat)), crs = sf::st_crs(green_points))
+  start_point <- sf::st_sfc(sf::st_point(c(location_lon, location_lat)), crs = 4326)
+  start_point <- sf::st_transform(start_point, sf::st_crs(green_points))
   distances <- sf::st_distance(green_points, start_point)
   nearest_green <- green_points[which.min(distances), ]
-  nearest_coords <- sf::st_coordinates(nearest_green)
+  nearest_coords <- sf::st_coordinates(sf::st_transform(nearest_green, 4326))
 
   # Calculate the shortest route using OSRM with the walking profile
   route <- osrm::osrmRoute(src = c(location_lon, location_lat), dst = nearest_coords[1, c("X", "Y")],
-                           overview = "full", osrm.profile = "foot")
+                           overview = "full", osrm.server = osrm_server,
+                           osrm.profile = "foot")
 
   # Calculate walking time in minutes (speed = user-defined walking speed)
-  distance_m <- min(distances)  # Distance in meters
-  distance_km <- distance_m / 1000  # Convert to kilometers
+  distance_km <- route$distance[1]
+  distance_m <- distance_km * 1000
   walking_time_minutes <- (distance_km / walking_speed_kmh) * 60  # Convert hours to minutes
 
   # Print route details
-  destination_name <- ifelse(is.na(nearest_green$name[1]), "Unknown", nearest_green$name[1])
+  destination_name <- if ("name" %in% names(nearest_green) &&
+                          !is.na(nearest_green$name[1]))
+    nearest_green$name[1] else "Unknown"
   start_info <- sprintf("Start Position: (%f, %f)", location_lat, location_lon)
   destination_info <- sprintf("Nearest Green Space: (%f, %f)\nName: %s\nDistance: %.2f meters\nWalking Time: ~%.2f minutes",
                               nearest_coords[1, "Y"], nearest_coords[1, "X"],

@@ -4,9 +4,8 @@
 #' a specified walking time from a given location. It also exports the spatial data
 #' as a geopackage file for use in GIS software like QGIS.
 #'
-#' Note: This function requires an OSRM server for isochrone computation. By default,
-#' it uses the public OSRM API, which requires internet access. During CRAN checks
-#' and non-interactive sessions, the function will halt to prevent unintended web requests.
+#' This function requires an OSRM server with a walking profile and internet
+#' access when using the default public server.
 #'
 #' @param green_area_data A list containing green area data, usually obtained from the \code{get_osm_data} function.
 #' @param location_lat Numeric latitude of the specified location.
@@ -16,6 +15,7 @@
 #' @param location_color Color for the specified location on the map. Default is "blue".
 #' @param isochrone_color Color palette for the isochrone lines. Default is "viridis".
 #' @param output_file Path and filename for the output geopackage. If NULL (default), no file is exported.
+#' @param osrm_server URL of an OSRM server with a foot routing graph.
 #'
 #' @return A list containing a leaflet map object and the spatial data (sf objects).
 #' @importFrom sf st_as_sf st_transform st_make_valid st_coordinates st_write
@@ -46,24 +46,27 @@
 accessibility_greenspace <- function(green_area_data, location_lat, location_lon,
                                      max_walk_time = 15, green_color = "green",
                                      location_color = "blue", isochrone_color = "viridis",
-                                     output_file = NULL) {
-
-  # Prevent unintentional internet use in CRAN checks or non-interactive sessions
-  if (!interactive() && is.null(getOption("osrm.server")) && !isTRUE(getOption("greenR.allow_non_interactive", FALSE))) {
-    # message("accessibility_greenspace() requires an OSRM server. Defaulting to public API.")
-  }
+                                     output_file = NULL,
+                                     osrm_server = "https://routing.openstreetmap.de/routed-foot/") {
 
   # Error Handling: Check if latitude and longitude are numeric and within valid range
-  if (!is.numeric(location_lat) || location_lat < -90 || location_lat > 90) {
+  if (!is.numeric(location_lat) || length(location_lat) != 1L ||
+      !is.finite(location_lat) || location_lat < -90 || location_lat > 90) {
     stop("Invalid latitude provided. Latitude should be a numeric value between -90 and 90.")
   }
 
-  if (!is.numeric(location_lon) || location_lon < -180 || location_lon > 180) {
+  if (!is.numeric(location_lon) || length(location_lon) != 1L ||
+      !is.finite(location_lon) || location_lon < -180 || location_lon > 180) {
     stop("Invalid longitude provided. Longitude should be a numeric value between -180 and 180.")
   }
+  if (!is.numeric(max_walk_time) || length(max_walk_time) != 1L ||
+      !is.finite(max_walk_time) || max_walk_time <= 0)
+    stop("max_walk_time must be a positive number of minutes.", call. = FALSE)
 
   # Prepare the green area data
   osm_sf <- green_area_data$osm_polygons
+  if (!inherits(osm_sf, "sf"))
+    stop("green_area_data must contain an sf osm_polygons layer.", call. = FALSE)
 
   # Prepare the specified location as an sf object
   specified_location <-
@@ -78,7 +81,9 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
   # Create the isochrone map using the specified location and walking time
   iso_map <- osrm::osrmIsochrone(
     loc = specified_location,
-    breaks = seq(from = 0, to = max_walk_time, by = 5),
+    breaks = sort(unique(c(seq(from = 0, to = max_walk_time, by = 5),
+                           max_walk_time))),
+    osrm.server = osrm_server,
     osrm.profile = "foot"
   )
 
@@ -108,7 +113,7 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
       layerId = ~iso_map_valid$isomax
     ) %>%
     leaflet::addCircles(
-      data = sf::st_coordinates(specified_location),
+      lng = location_lon, lat = location_lat,
       radius = 10,
       color = location_color,
       fillOpacity = 1,

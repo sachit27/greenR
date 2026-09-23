@@ -14,6 +14,6 @@ utils::globalVariables(
     "lst_mean_c", "mean_horizon_deg", "need_high", "opportunity_bin",
     "opportunity_high", "plantability_score", "planting_opportunity_score",
     "priority_score", "quadrant", "street_id", "svf", "svf_mean",
-    "tree_need_score", "x", "y"
+    "tree_need_score", "x", "y", "."
   )
 )

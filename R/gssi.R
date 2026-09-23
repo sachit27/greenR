@@ -60,16 +60,25 @@ gssi <- function(green_spaces_list, equal_area_crs = "ESRI:54009") {
 
     # Area-based metrics
     mean_area <- mean(green_areas$area)
-    sd_area <- sd(green_areas$area)
+    sd_area <- stats::sd(green_areas$area)
     coefficient_of_variation_area <- sd_area / mean_area
+    if (!is.finite(coefficient_of_variation_area) ||
+        coefficient_of_variation_area <= 0) {
+      ggssi_values[i] <- NA_real_
+      next
+    }
 
-    # Proximity calculation using spatstat
-    coords <- sf::st_coordinates(green_areas_transformed)
+    # One point per green space, rather than every polygon vertex.
+    coords <- sf::st_coordinates(sf::st_point_on_surface(green_areas_transformed))[, 1:2, drop = FALSE]
     bbox <- sf::st_bbox(green_areas_transformed)
     window <- spatstat.geom::owin(xrange = bbox[c(1, 3)], yrange = bbox[c(2, 4)])
-    ppp_object <- spatstat.geom::as.ppp(coords, W = window)
+    ppp_object <- spatstat.geom::ppp(coords[, 1], coords[, 2], window = window)
     nn_distances <- spatstat.geom::nndist(ppp_object)
     avg_nn_distance <- mean(nn_distances)
+    if (!is.finite(avg_nn_distance) || avg_nn_distance <= 0) {
+      ggssi_values[i] <- NA_real_
+      next
+    }
 
     # Combine area and proximity metrics
     combined_metric <- (1 / coefficient_of_variation_area) * (1 / avg_nn_distance)
@@ -77,11 +86,11 @@ gssi <- function(green_spaces_list, equal_area_crs = "ESRI:54009") {
   }
 
   # Normalize GGSSI values
-  max_ggssi <- max(ggssi_values, na.rm = TRUE)
-  if (max_ggssi == 0 || is.infinite(max_ggssi)) {
+  if (all(is.na(ggssi_values))) {
     message("No valid GGSSI values calculated")
-    return(NA)
+    return(rep(NA_real_, length(ggssi_values)))
   }
+  max_ggssi <- max(ggssi_values, na.rm = TRUE)
 
   normalized_ggssi <- ggssi_values / max_ggssi
 

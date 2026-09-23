@@ -140,25 +140,12 @@ What you get:
 
 # 7. Calculate the green index for the specified city
 
-This function takes as input the OSM data, a Coordinate Reference System (CRS) code, and parameter D for the distance decay functions. The algorithm extracts the highways, green areas, and trees data from the input list and transforms the data into the given CRS. The CRS affects how distances, areas, and other measurements are calculated. Different CRSs may represent the Earth's surface in ways that either exaggerate or minimize certain dimensions. So, using the wrong CRS can lead to incorrect calculations and analyses. If you're focusing on a city or other localized area, you'll likely want to use a CRS that is tailored to that specific location. This could be a local city grid system or other local CRS that has been designed to minimize distortions in that area. This function then defines distance decay functions for green areas and trees using the parameter D. For each edge in the highway data, the function calculates the green index using the decay functions and returns a data frame with the green index for each edge. By default, D is specified to 100 (distance decay parameter in meters) but it can be changed by the user. Similarly, the users must specify the CRS (<https://epsg.io/>). The green index ranges from 0 to 1 and it represents the relative greenness of each section, factoring in proximity to green spaces and tree density.
+This function takes the OSM data, an output Coordinate Reference System (CRS) code, and a distance-decay parameter `D` in metres. It finds the nearest green area and tree within `buffer_distance` metres of each street segment, applies exponential distance decay, and scales the mean score from 0 to 1 across the supplied streets. Missing green areas or trees contribute zero. When the output CRS is geographic, such as EPSG:4326, distances are calculated in a local metric CRS before the result is transformed back.
 
 ```{r, eval = FALSE}
 
-tryCatch({
-  green_index <- calculate_green_index(data, 4326, 100)
-  print(head(green_index))
-}, error = function(e) {
-  message("Note: Green index calculation was skipped in this vignette build.")
-  message("This function requires the DuckDB spatial extension, which may not be available in all environments.")
-  # Create a dummy green_index object for demonstration purposes
-  green_index <- data.frame(
-    osm_id = 1:5,
-    green_index = runif(5),
-    geometry = rep("LINESTRING(0 0, 1 1)", 5)
-  )
-  green_index <- sf::st_as_sf(green_index, wkt = "geometry", crs = 4326)
-  print(head(green_index))
-})
+green_index <- calculate_green_index(data, crs_code = 4326, D = 100)
+print(head(green_index))
 
 
 # 8. Create the green index plot

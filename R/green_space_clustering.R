@@ -38,8 +38,17 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
 
   # Transform the green areas to an equal-area projection to calculate the area accurately
   green_areas <- sf::st_as_sf(green_areas_data$osm_polygons)
+  if (!is.numeric(num_clusters) || length(num_clusters) != 1L ||
+      !is.finite(num_clusters) || num_clusters < 1 ||
+      num_clusters != as.integer(num_clusters))
+    stop("num_clusters must be a positive integer.", call. = FALSE)
+  if (!nrow(green_areas))
+    stop("green_areas_data contains no polygons.", call. = FALSE)
   green_areas_transformed <- sf::st_transform(green_areas, crs = sf::st_crs("ESRI:54009"))
   green_areas$area <- as.numeric(sf::st_area(green_areas_transformed))
+  if (num_clusters > length(unique(green_areas$area)))
+    stop("num_clusters exceeds the number of distinct polygon areas.",
+         call. = FALSE)
 
   # Area data needs to be in a matrix or data frame
   area_data <- data.frame(area = green_areas$area)
@@ -49,7 +58,9 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
   green_areas$cluster <- kmeans_result$cluster
 
   # Define colors for clusters using a color palette
-  pal <- leaflet::colorFactor(RColorBrewer::brewer.pal(ifelse(num_clusters <= 8, num_clusters, 8), "Dark2"), domain = green_areas$cluster)
+  colors <- grDevices::colorRampPalette(
+    RColorBrewer::brewer.pal(8, "Dark2"))(num_clusters)
+  pal <- leaflet::colorFactor(colors, domain = green_areas$cluster)
 
   # Create a Leaflet map with base tiles
   map <- leaflet::leaflet(green_areas) %>%

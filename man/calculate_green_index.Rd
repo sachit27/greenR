@@ -2,7 +2,7 @@
 % Please edit documentation in R/calculate_green_index.R
 \name{calculate_green_index}
 \alias{calculate_green_index}
-\title{Calculate Green Index (Optimized + Robust + Progress Bar)}
+\title{Calculate a street-segment green index}
 \usage{
 calculate_green_index(
   osm_data,
@@ -13,25 +13,23 @@ calculate_green_index(
 )
 }
 \arguments{
-\item{osm_data}{List containing OSM data (highways, green_areas, trees).}
+\item{osm_data}{Output of \code{\link[=get_osm_data]{get_osm_data()}} or a compatible list.}
 
-\item{crs_code}{Coordinate reference system code for transformations.}
+\item{crs_code}{CRS for the output.}
 
-\item{D}{Distance decay parameter (default = 100).}
+\item{D}{Positive distance-decay parameter in metres.}
 
-\item{buffer_distance}{Buffer distance for spatial joins (default = 120).}
+\item{buffer_distance}{Nonnegative search radius in metres.}
 
-\item{show_time}{Logical, whether to print processing time (default TRUE).}
+\item{show_time}{Print elapsed processing time.}
 }
 \value{
-A spatial data frame with calculated green index.
+An \code{sf} object with street attributes and index columns.
 }
 \description{
-Calculates the green index for a given set of OpenStreetMap (OSM) data using DuckDB.
-}
-\examples{
-\dontrun{
-  osm_data <- get_osm_data("Basel, Switzerland")
-  green_index <- calculate_green_index(osm_data, 2056)
-}
+For each street, finds the nearest green area and tree within
+\code{buffer_distance} metres. Each component is \code{exp(-distance / D)}; a missing
+component contributes zero. The mean is scaled from 0 to 1 across streets.
+Distances use a local metric CRS when \code{crs_code} is geographic,
+uses non-metre units, or is Web Mercator.
 }

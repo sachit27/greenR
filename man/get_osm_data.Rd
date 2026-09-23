@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_osm_data.R
 \name{get_osm_data}
 \alias{get_osm_data}
-\title{Download OSM Data (Interactive Use Only)}
+\title{Download OSM data}
 \usage{
 get_osm_data(
   bbox,
@@ -10,8 +10,10 @@ get_osm_data(
   username = NULL,
   password = NULL,
   cache = FALSE,
-  cache_dir = file.path(tempdir(), "greenR_osm_cache"),
+  cache_dir = tools::R_user_dir("greenR", which = "cache"),
   timeout = 180,
+  overpass_servers = c("https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter"),
   include_highways = TRUE,
   include_green_areas = TRUE,
   include_trees = TRUE,
@@ -33,9 +35,12 @@ in the order: c(left, bottom, right, top).}
 
 \item{cache}{Logical. If TRUE, cache results on disk and reuse them for the same input. Defaults to \code{FALSE} to ensure fresh data is always fetched. Set to \code{TRUE} to enable caching during rapid development or testing cycles to avoid Overpass API rate-limiting blocks.}
 
-\item{cache_dir}{Character. Directory used for disk cache.}
+\item{cache_dir}{Character. Directory used for persistent disk cache.}
 
 \item{timeout}{Numeric. Overpass query timeout in seconds.}
+
+\item{overpass_servers}{Character vector of global Overpass API endpoints
+tried in order. Override this when using a private instance.}
 
 \item{include_highways}{Logical. If TRUE, fetch highway features.}
 

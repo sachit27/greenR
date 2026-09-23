@@ -134,7 +134,11 @@ analyze_green_and_tree_count_density <- function(
       if (length(unique(b)) < 4) return(NULL) else return(b)
     }
     if (method == "jenks") {
-      b <- classInt::classIntervals(vals, n = 3, style = "jenks")$brks
+      if (length(unique(vals[is.finite(vals)])) < 4L) return(NULL)
+      b <- tryCatch(classInt::classIntervals(vals, n = 3,
+                                             style = "jenks")$brks,
+                    error = function(e) NULL)
+      if (is.null(b)) return(NULL)
       if (length(unique(b)) < 4) return(NULL) else return(b)
     }
     if (method == "fixed") {

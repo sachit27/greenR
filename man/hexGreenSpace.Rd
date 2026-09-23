@@ -2,7 +2,7 @@
 % Please edit documentation in R/hexGreenSpace.R
 \name{hexGreenSpace}
 \alias{hexGreenSpace}
-\title{Visualize Green Space Coverage with Hexagonal Bins}
+\title{Visualize green-space coverage in hexagonal bins}
 \usage{
 hexGreenSpace(
   green_areas_data = NULL,
@@ -13,30 +13,22 @@ hexGreenSpace(
 )
 }
 \arguments{
-\item{green_areas_data}{List containing green areas data (obtained from the \code{get_osm_data} function), default is NULL.}
+\item{green_areas_data}{A list containing \code{osm_polygons}, as returned by
+\code{\link[=get_osm_data]{get_osm_data()}}. May be \code{NULL}.}
 
-\item{tree_data}{List containing tree data (obtained from the \code{get_osm_data} function), default is NULL.}
+\item{tree_data}{A list containing \code{osm_points}. May be \code{NULL}.}
 
-\item{hex_size}{Numeric, size of the hexagons in meters, default is 500.}
+\item{hex_size}{Positive hexagon cell size in metres.}
 
-\item{color_palette}{Character, name of the color palette to use, default is "viridis".}
+\item{color_palette}{A palette name accepted by \code{\link[leaflet:colorNumeric]{leaflet::colorNumeric()}}.}
 
-\item{save_path}{Character, file path to save the map as an HTML file, default is NULL (do not save).}
+\item{save_path}{Optional HTML output path.}
 }
 \value{
-A list containing a Leaflet map displaying the percentage of green space coverage, and a ggplot2 violin plot.
+A list with a Leaflet \code{map}, a ggplot \code{violin}, and the \code{hexes}
+spatial data including \code{coverage_pct}.
 }
 \description{
-Creates a hexagonal binning map to visualize the percentage of green space coverage within a specified area.
-Users can customize the hexagon size, color palette, and other map features.
-}
-\examples{
-\dontrun{
-  data <- get_osm_data("City of London, United Kingdom")
-  green_areas_data <- data$green_areas
-  tree_data <- data$trees
-  hex_map <- hexGreenSpace(green_areas_data, tree_data, hex_size = 300)
-  print(hex_map$map) # Display the hex bin map
-  print(hex_map$violin) # Display the violin plot
-}
+Computes the covered area of each hexagon from the union of green polygons
+and five-metre tree-canopy buffers. Overlapping inputs are counted once.
 }

@@ -32,53 +32,20 @@ calculate_and_visualize_GVI <- function(image_path) {
                                   sim_color_radius = 10,
                                   verbose = FALSE)
 
-  # Internal Function to Check if Pixel is Green
-  is_green_pixel <- function(R, G, B) {
-    if (G > 0.2 && G > R && G > B) {
-      return(TRUE)
-    }
-    return(FALSE)
-  }
-
-  # Calculate Green View Index (GVI)
   segmented_image <- spx$AP_image_data
-  total_pixels <- 0
-  green_pixels <- 0
-
-  for (i in 1:dim(segmented_image)[1]) {
-    for (j in 1:dim(segmented_image)[2]) {
-      total_pixels <- total_pixels + 1
-      R <- segmented_image[i, j, 1]
-      G <- segmented_image[i, j, 2]
-      B <- segmented_image[i, j, 3]
-
-      if (is_green_pixel(R, G, B)) {
-        green_pixels <- green_pixels + 1
-      }
-    }
-  }
-
-  GVI <- green_pixels / total_pixels
+  dims <- dim(segmented_image)
+  if (length(dims) != 3L || dims[3] < 3L || any(dims[1:2] == 0L))
+    stop("Segmentation did not return a nonempty RGB image.", call. = FALSE)
+  red <- segmented_image[, , 1]
+  green <- segmented_image[, , 2]
+  blue <- segmented_image[, , 3]
+  green_mask <- is.finite(red) & is.finite(green) & is.finite(blue) &
+    green > 0.2 & green > red & green > blue
+  GVI <- mean(green_mask)
   message(paste("Green View Index: ", GVI))
 
-  # Visualize Green Pixels
-  visualized_image <- array(0, dim = c(dim(segmented_image)[1], dim(segmented_image)[2], 3))
-
-  for (i in 1:dim(segmented_image)[1]) {
-    for (j in 1:dim(segmented_image)[2]) {
-      R <- segmented_image[i, j, 1]
-      G <- segmented_image[i, j, 2]
-      B <- segmented_image[i, j, 3]
-
-      ExG <- (G - R) + (G - B)
-
-      if (G < 0.9 && R < 0.6 && B < 0.6 && ExG > 0.05) {
-        visualized_image[i, j, ] <- c(0, 1, 0)
-      } else {
-        visualized_image[i, j, ] <- c(0, 0, 0)
-      }
-    }
-  }
+  visualized_image <- array(0, dim = c(dims[1], dims[2], 3))
+  visualized_image[, , 2] <- as.numeric(green_mask)
 
   return(list(GVI = GVI, segmented_image = spx$AP_image_data, green_pixels_image = visualized_image))
 }

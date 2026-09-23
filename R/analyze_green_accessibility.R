@@ -88,7 +88,7 @@ analyze_green_accessibility <- function(network_data,
     list(network = network, green = green)
   }
 
-  # ---- Mode Filtering ----
+  # ---- Mode Filtering (delegates to package-level helpers) ----
   configure_modes <- function(mode) {
     available <- c("walking", "cycling", "driving")
     if (mode == "all") return(available)
@@ -96,25 +96,16 @@ analyze_green_accessibility <- function(network_data,
     return(mode)
   }
 
-  get_mode_params <- function(mode) {
-    switch(mode,
-           walking = list(speed = 5, filters = c("footway", "path", "pedestrian")),
-           cycling = list(speed = 15, filters = c("cycleway", "path", "living_street")),
-           driving = list(speed = 40, filters = c("motorway", "trunk", "primary", "secondary")),
-           stop("Invalid mode"))
-  }
-
-  filter_network <- function(network, mode_params) {
-    network %>%
-      dplyr::filter(highway %in% mode_params$filters) %>%
-      dplyr::mutate(length = sf::st_length(.))
-  }
+  get_mode_params <- .get_mode_params
+  filter_network <- .filter_network
 
   create_grid <- function(network, size) {
-    grid <- sf::st_make_grid(sf::st_as_sfc(sf::st_bbox(network)), cellsize = size, square = TRUE)
+    if (!nrow(network))
+      stop("No streets match the requested travel mode.", call. = FALSE)
+    buffered <- sf::st_union(sf::st_buffer(network, size))
+    grid <- sf::st_make_grid(buffered, cellsize = size, square = TRUE)
     grid_sf <- sf::st_as_sf(grid, crs = sf::st_crs(network)) %>%
       dplyr::mutate(grid_id = dplyr::row_number())
-    buffered <- sf::st_union(sf::st_buffer(network, size))
     grid_sf[sf::st_intersects(grid_sf, buffered, sparse = FALSE), ]
   }
 
@@ -156,7 +147,7 @@ analyze_green_accessibility <- function(network_data,
 
   calculate_stats <- function(grid) {
     total_cells <- nrow(grid)
-    cells_with_access <- sum(!is.na(grid$access))
+    cells_with_access <- sum(is.finite(grid$access))
     coverage_400m <- mean(grid$distance <= 400, na.rm = TRUE) * 100
     coverage_800m <- mean(grid$distance <= 800, na.rm = TRUE) * 100
     dir_stats <- calculate_directional_stats(grid$centroid, green)
@@ -207,8 +198,8 @@ analyze_green_accessibility <- function(network_data,
       sfnetworks::activate("edges") %>%
       dplyr::mutate(weight = as.numeric(length) / (mode_params$speed / 3.6))
 
-    centroids <- sf::st_centroid(grid)
-    green_pts <- sf::st_centroid(green)
+    centroids <- sf::st_centroid(sf::st_geometry(grid))
+    green_pts <- sf::st_point_on_surface(sf::st_geometry(green))
     nodes <- sfnetworks::activate(graph, "nodes") %>% sf::st_as_sf()
     centroid_nodes <- sf::st_nearest_feature(centroids, nodes)
     green_nodes <- unique(sf::st_nearest_feature(green_pts, nodes))
@@ -244,4 +235,3 @@ analyze_green_accessibility <- function(network_data,
     return(results[[1]])
   }
 }
-

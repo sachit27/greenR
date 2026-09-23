@@ -13,7 +13,9 @@
 }
 
 .is_closed_ring <- function(coords) {
-  nrow(coords) >= 4 && isTRUE(all.equal(coords[1, ], coords[nrow(coords), ], tolerance = 1e-9, check.attributes = FALSE))
+  !is.null(coords) && nrow(coords) >= 4 &&
+    isTRUE(all.equal(coords[1, ], coords[nrow(coords), ],
+                     tolerance = 1e-9, check.attributes = FALSE))
 }
 
 .close_ring <- function(coords) {
@@ -55,7 +57,8 @@
   if (length(ways) == 0) return(NULL)
   geoms <- list(); keep <- integer(0)
   for (i in seq_along(ways)) {
-    mat <- .close_ring(.way_geom_to_matrix(ways[[i]]$geometry))
+    mat <- .way_geom_to_matrix(ways[[i]]$geometry)
+    if (!.is_closed_ring(mat)) next
     if (!is.null(mat)) {
       poly <- tryCatch(sf::st_polygon(list(mat)), error = function(e) NULL)
       if (!is.null(poly)) { geoms[[length(geoms)+1]] <- poly; keep <- c(keep, i) }
@@ -69,30 +72,40 @@
   rels <- Filter(function(e) identical(e$type, "relation") && !is.null(e$members), elements)
   if (length(rels) == 0) return(NULL)
   geoms <- list(); keep <- integer(0)
-  for (i in seq_along(rels)) {
+  polygonize_members <- function(members) {
     lines <- list()
-    for (m in rels[[i]]$members) {
-      mat <- .way_geom_to_matrix(m$geometry)
-      if (!is.null(mat)) lines[[length(lines)+1]] <- sf::st_linestring(mat)
+    for (member in members) {
+      mat <- .way_geom_to_matrix(member$geometry)
+      if (!is.null(mat)) lines[[length(lines) + 1L]] <- sf::st_linestring(mat)
     }
-    if (length(lines) > 0) {
-      combined <- tryCatch(sf::st_polygonize(sf::st_union(sf::st_sfc(lines, crs = 4326))), error = function(e) NULL)
-      if (!is.null(combined) && length(combined) > 0) {
-         # Handle GEOMETRYCOLLECTION
-         gc <- combined[[1]]
-         polys <- if (inherits(gc, "GEOMETRYCOLLECTION")) Filter(function(g) inherits(g, "POLYGON"), unclass(gc)) else if (inherits(gc, "POLYGON")) list(gc) else list()
-         if (length(polys) > 0) {
-           mp <- tryCatch(sf::st_multipolygon(lapply(polys, function(p) unclass(p))), error = function(e) NULL)
-           if (!is.null(mp)) { geoms[[length(geoms)+1]] <- mp; keep <- c(keep, i) }
-         }
-      }
+    if (!length(lines)) return(NULL)
+    tryCatch({
+      polygonized <- sf::st_polygonize(sf::st_union(sf::st_sfc(lines, crs = 4326)))
+      polys <- sf::st_collection_extract(polygonized, "POLYGON")
+      if (!length(polys) || all(sf::st_is_empty(polys))) NULL else sf::st_union(polys)
+    }, error = function(e) NULL)
+  }
+  for (i in seq_along(rels)) {
+    members <- rels[[i]]$members
+    outer <- polygonize_members(Filter(function(m) is.null(m$role) ||
+                                       m$role != "inner", members))
+    if (is.null(outer)) next
+    inner <- polygonize_members(Filter(function(m) identical(m$role, "inner"),
+                                       members))
+    if (!is.null(inner))
+      outer <- tryCatch(sf::st_difference(outer, inner), error = function(e) outer)
+    mp <- tryCatch(sf::st_cast(outer, "MULTIPOLYGON")[[1]],
+                   error = function(e) NULL)
+    if (!is.null(mp) && !sf::st_is_empty(mp)) {
+      geoms[[length(geoms) + 1L]] <- mp
+      keep <- c(keep, i)
     }
   }
   if (length(geoms) == 0) return(NULL)
   sf::st_sf(.tags_to_df(lapply(rels[keep], function(r) if (is.null(r$tags)) list() else r$tags), vapply(rels[keep], function(r) r$id, numeric(1))), geometry = sf::st_sfc(geoms, crs = 4326))
 }
 
-#' Download OSM Data (Interactive Use Only)
+#' Download OSM data
 #'
 #' Downloads OpenStreetMap (OSM) data for a specified location or bounding box.
 #' Includes highways, green areas, trees, and water bodies for the specified
@@ -105,8 +118,10 @@
 #' @param username Ignored.
 #' @param password Ignored.
 #' @param cache Logical. If TRUE, cache results on disk and reuse them for the same input. Defaults to \code{FALSE} to ensure fresh data is always fetched. Set to \code{TRUE} to enable caching during rapid development or testing cycles to avoid Overpass API rate-limiting blocks.
-#' @param cache_dir Character. Directory used for disk cache.
+#' @param cache_dir Character. Directory used for persistent disk cache.
 #' @param timeout Numeric. Overpass query timeout in seconds.
+#' @param overpass_servers Character vector of global Overpass API endpoints
+#'   tried in order. Override this when using a private instance.
 #' @param include_highways Logical. If TRUE, fetch highway features.
 #' @param include_green_areas Logical. If TRUE, fetch green area polygons.
 #' @param include_trees Logical. If TRUE, fetch tree points.
@@ -129,24 +144,26 @@ get_osm_data <- function(
   bbox,
   server_url  = "https://nominatim.openstreetmap.org",
   username    = NULL, password = NULL, cache = FALSE,
-  cache_dir   = file.path(tempdir(), "greenR_osm_cache"),
+  cache_dir   = tools::R_user_dir("greenR", which = "cache"),
   timeout     = 180,
+  overpass_servers = c("https://overpass-api.de/api/interpreter",
+                       "https://overpass.private.coffee/api/interpreter"),
   include_highways = TRUE, include_green_areas = TRUE, include_trees = TRUE,
   include_water = TRUE, include_buildings = FALSE,
   verbose = TRUE
 ) {
-  if (!interactive() && !isTRUE(getOption("greenR.allow_non_interactive", FALSE)) && !isTRUE(getOption("example.ask", FALSE))) {
-    # For CRAN or automated tests, we might want to skip or just warn
-    # but for now let's just allow it if the user wants.
-  }
   vlog <- function(...) if (isTRUE(verbose)) message(...)
 
-  OVERPASS_SERVERS <- c(
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.osm.ch/api/interpreter",
-    "https://api.openstreetmap.fr/oapi/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
-  )
+  if (!is.numeric(timeout) || length(timeout) != 1L || !is.finite(timeout) ||
+      timeout < 1) stop("timeout must be a positive number of seconds.", call. = FALSE)
+  if (!is.character(overpass_servers) || !length(overpass_servers) ||
+      anyNA(overpass_servers) || any(!nzchar(overpass_servers)))
+    stop("overpass_servers must contain at least one endpoint.", call. = FALSE)
+  flags <- list(include_highways, include_green_areas, include_trees,
+                include_water, include_buildings)
+  if (!all(vapply(flags, function(x) is.logical(x) && length(x) == 1L &&
+                  !is.na(x), logical(1))))
+    stop("Each include_* argument must be TRUE or FALSE.", call. = FALSE)
   USER_AGENT <- "greenR R package (github.com/sachit27/greenR)"
 
   .geocode_nominatim <- function(place, base_url = "https://nominatim.openstreetmap.org") {
@@ -160,76 +177,104 @@ get_osm_data <- function(
   }
 
   .resolve_bbox <- function(x) {
-    if (is.numeric(x)) { bq <- x; names(bq) <- c("left", "bottom", "right", "top"); return(bq) }
+    if (is.numeric(x)) {
+      if (length(x) != 4L || any(!is.finite(x)) ||
+          x[1] >= x[3] || x[2] >= x[4] ||
+          x[1] < -180 || x[3] > 180 || x[2] < -90 || x[4] > 90)
+        stop("bbox must be c(left, bottom, right, top) in longitude/latitude.", call. = FALSE)
+      names(x) <- c("left", "bottom", "right", "top")
+      return(x)
+    }
+    if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x))
+      stop("bbox must be a place name or four coordinates.", call. = FALSE)
     bq <- .geocode_nominatim(x, server_url)
     if (is.null(bq)) stop("Geocoding failed.")
     bq
   }
 
   .fetch_overpass <- function(ql, http_timeout = timeout + 15) {
-    last_empty_parsed <- NULL
-    for (srv in OVERPASS_SERVERS) {
+    for (srv in overpass_servers) {
       vlog("  [overpass] trying: ", srv)
       resp <- tryCatch(httr::POST(srv, body = list(data = ql), encode = "form", httr::timeout(http_timeout), httr::add_headers(`User-Agent` = USER_AGENT)), error = function(e) NULL)
       if (!is.null(resp) && !httr::http_error(resp)) {
         txt <- httr::content(resp, as = "text", encoding = "UTF-8")
         parsed <- tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE), error = function(e) NULL)
         if (!is.null(parsed) && !is.null(parsed$elements)) {
-          if (length(parsed$elements) > 0) {
-            vlog(sprintf("  [overpass] success (%d elements)", length(parsed$elements)))
-            return(parsed)
-          } else {
-            vlog("  [overpass] returned 0 elements, keeping it as fallback but trying other servers...")
-            last_empty_parsed <- parsed
-          }
+          vlog(sprintf("  [overpass] success (%d elements)", length(parsed$elements)))
+          return(parsed)
         }
       }
     }
-    if (!is.null(last_empty_parsed)) {
-      vlog("  [overpass] returning fallback empty response.")
-      return(last_empty_parsed)
-    }
-    stop("All servers failed.")
+    stop("All Overpass servers failed; retry later or set overpass_servers.",
+         call. = FALSE)
   }
 
   bq <- .resolve_bbox(bbox)
   if (isTRUE(cache)) {
     dir.create(cache_dir, FALSE, TRUE)
-    cfile <- file.path(cache_dir, paste0("osm_", paste(bq, collapse="_"), ".rds"))
+    cache_key <- paste(c(bq, include_highways, include_green_areas,
+                         include_trees, include_water, include_buildings),
+                       collapse = "_")
+    cfile <- file.path(cache_dir, paste0("osm_v3_", cache_key, ".rds"))
     if (file.exists(cfile)) { vlog("[get_osm_data] Using cache."); return(readRDS(cfile)) }
   }
 
-  res <- list()
-  if (include_highways) {
-    ql <- sprintf("[out:json][timeout:%d];(way[\"highway\"](%f,%f,%f,%f););out geom;", timeout, bq[2], bq[1], bq[4], bq[3])
-    p <- .fetch_overpass(ql); res$highways <- list(osm_lines = .build_lines_sf(p$elements))
+  # Request all selected features together: one Overpass round trip and one
+  # failover sequence instead of a separate request for every feature class.
+  bb <- paste(bq[c("bottom", "left", "top", "right")], collapse = ",")
+  clauses <- character()
+  add <- function(types, filter) {
+    for (type in types)
+      clauses <<- c(clauses, sprintf("%s[%s](%s);", type, filter, bb))
   }
+  green_landuse <- '"landuse"~"^(forest|vineyard|plant_nursery|orchard|greenfield|recreation_ground|allotments|meadow|village_green|flowerbed|grass|farmland)$"'
+  green_leisure <- '"leisure"~"^(garden|dog_park|nature_reserve|park)$"'
+  if (include_highways) add("way", '"highway"')
   if (include_green_areas) {
-    ql <- sprintf(
-      "[out:json][timeout:%d];(way[\"landuse\"~\"forest|vineyard|plant_nursery|orchard|greenfield|recreation_ground|allotments|meadow|village_green|flowerbed|grass|farmland\"](%f,%f,%f,%f);rel[\"landuse\"~\"forest|vineyard|plant_nursery|orchard|greenfield|recreation_ground|allotments|meadow|village_green|flowerbed|grass|farmland\"](%f,%f,%f,%f);way[\"leisure\"~\"garden|dog_park|nature_reserve|park\"](%f,%f,%f,%f);rel[\"leisure\"~\"garden|dog_park|nature_reserve|park\"](%f,%f,%f,%f););out geom;",
-      timeout,
-      bq[2], bq[1], bq[4], bq[3],
-      bq[2], bq[1], bq[4], bq[3],
-      bq[2], bq[1], bq[4], bq[3],
-      bq[2], bq[1], bq[4], bq[3]
-    )
-    p <- .fetch_overpass(ql); polys <- .build_polygons_sf(p$elements); mpolys <- .build_multipolygons_sf(p$elements)
-    res$green_areas <- list(osm_polygons = .safe_rbind_sf(polys, mpolys))
+    add(c("way", "rel"), green_landuse)
+    add(c("way", "rel"), green_leisure)
   }
-  if (include_trees) {
-    ql <- sprintf("[out:json][timeout:%d];(node[\"natural\"=\"tree\"](%f,%f,%f,%f););out geom;", timeout, bq[2], bq[1], bq[4], bq[3])
-    p <- .fetch_overpass(ql); res$trees <- list(osm_points = .build_points_sf(p$elements))
-  }
+  if (include_trees) add("node", '"natural"="tree"')
   if (include_water) {
-    ql <- sprintf("[out:json][timeout:%d];(way[\"natural\"=\"water\"](%f,%f,%f,%f);way[\"waterway\"](%f,%f,%f,%f);relation[\"natural\"=\"water\"](%f,%f,%f,%f););out geom;", timeout, bq[2], bq[1], bq[4], bq[3], bq[2], bq[1], bq[4], bq[3], bq[2], bq[1], bq[4], bq[3])
-    p <- .fetch_overpass(ql); polys <- .build_polygons_sf(p$elements); mpolys <- .build_multipolygons_sf(p$elements)
-    res$water <- list(osm_polygons = .safe_rbind_sf(polys, mpolys))
+    add(c("way", "rel"), '"natural"="water"')
+    add(c("way", "rel"), '"waterway"="riverbank"')
   }
-  if (include_buildings) {
-    ql <- sprintf("[out:json][timeout:%d];(way[\"building\"](%f,%f,%f,%f);rel[\"building\"](%f,%f,%f,%f););out geom;", timeout, bq[2], bq[1], bq[4], bq[3], bq[2], bq[1], bq[4], bq[3])
-    p <- .fetch_overpass(ql); polys <- .build_polygons_sf(p$elements); mpolys <- .build_multipolygons_sf(p$elements)
-    res$buildings <- list(osm_polygons = .safe_rbind_sf(polys, mpolys))
+  if (include_buildings) add(c("way", "rel"), '"building"')
+  elements <- if (length(clauses)) {
+    ql <- sprintf("[out:json][timeout:%d];(%s);out geom;",
+                  as.integer(timeout), paste(clauses, collapse = ""))
+    .fetch_overpass(ql)$elements
+  } else list()
+  has_tag <- function(e, key, values = NULL) {
+    tag <- e$tags[[key]]
+    !is.null(tag) && (is.null(values) || tag %in% values)
   }
+  subset_elements <- function(predicate)
+    Filter(predicate, elements)
+  polygon_layer <- function(x) .safe_rbind_sf(.build_polygons_sf(x),
+                                              .build_multipolygons_sf(x))
+  res <- list()
+  if (include_highways)
+    res$highways <- list(osm_lines = .build_lines_sf(subset_elements(
+      function(e) has_tag(e, "highway"))))
+  if (include_green_areas)
+    res$green_areas <- list(osm_polygons = polygon_layer(subset_elements(
+      function(e) has_tag(e, "landuse", c("forest", "vineyard", "plant_nursery",
+        "orchard", "greenfield", "recreation_ground", "allotments", "meadow",
+        "village_green", "flowerbed", "grass", "farmland")) ||
+        has_tag(e, "leisure", c("garden", "dog_park", "nature_reserve", "park")))))
+  if (include_trees)
+    res$trees <- list(osm_points = .build_points_sf(subset_elements(
+      function(e) has_tag(e, "natural", "tree"))))
+  if (include_water)
+    res$water <- list(osm_polygons = polygon_layer(subset_elements(
+      function(e) has_tag(e, "natural", "water") ||
+        (has_tag(e, "waterway", "riverbank") &&
+         (identical(e$type, "relation") ||
+          .is_closed_ring(.way_geom_to_matrix(e$geometry)))))))
+  if (include_buildings)
+    res$buildings <- list(osm_polygons = polygon_layer(subset_elements(
+      function(e) has_tag(e, "building"))))
 
   res_final <- list(
     highways = res$highways,

@@ -12,6 +12,7 @@
 ^doc$
 ^Meta$
 ^CRAN-SUBMISSION$
+^scripts$
 ^vignettes/svf1\.png$
 ^vignettes/newdelhi_decision_hybrid_field_hexagons\.png$
 ^vignettes/newdelhi_decision_action_classes_hexagons\.png$

@@ -11,6 +11,9 @@ compute_gini_bootstrap(data_vector, R = 100)
 
 \item{R}{Number of bootstrap replicates.}
 }
+\value{
+A list with the Gini value and bootstrap confidence interval.
+}
 \description{
 Highly Optimized Bootstrap Gini Inequality Index
 }
