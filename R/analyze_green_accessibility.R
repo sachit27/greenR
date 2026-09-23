@@ -88,7 +88,7 @@ analyze_green_accessibility <- function(network_data,
     list(network = network, green = green)
   }
 
-  # ---- Mode Filtering (delegates to package-level helpers) ----
+  # ---- Mode Filtering ----
   configure_modes <- function(mode) {
     available <- c("walking", "cycling", "driving")
     if (mode == "all") return(available)
@@ -96,8 +96,25 @@ analyze_green_accessibility <- function(network_data,
     return(mode)
   }
 
-  get_mode_params <- .get_mode_params
-  filter_network <- .filter_network
+  get_mode_params <- function(mode) {
+    switch(mode,
+      walking = list(speed = 5, filters = c(
+        "footway", "path", "pedestrian", "living_street", "residential",
+        "service", "tertiary", "unclassified", "track", "steps")),
+      cycling = list(speed = 15, filters = c(
+        "cycleway", "path", "living_street", "residential", "service",
+        "tertiary", "unclassified", "track")),
+      driving = list(speed = 40, filters = c(
+        "motorway", "trunk", "primary", "secondary", "tertiary",
+        "residential", "service", "living_street", "unclassified")),
+      stop("Invalid mode: ", mode, call. = FALSE))
+  }
+
+  filter_network <- function(network, mode_params) {
+    network %>%
+      dplyr::filter(highway %in% mode_params$filters) %>%
+      dplyr::mutate(length = sf::st_length(.))
+  }
 
   create_grid <- function(network, size) {
     if (!nrow(network))
