@@ -3,13 +3,13 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 
 #' Create a 3D Linestring Map
 #'
-#' This function creates a 3D linestring map using Mapbox GL JS and saves it as an HTML file. The data should not contain complex objects like list columns.
+#' This function creates a pitched interactive linestring map using MapLibre GL JS by default and saves it as an HTML file. The data should not contain complex objects like list columns.
 #' The map visualizes linestring data with an associated green index, allowing for interactive
 #' exploration of the data.
 #'
 #' @param data An `sf` object containing linestring geometries and associated data.
 #' @param green_index_col Character, name of the column containing the green index values.
-#' @param mapbox_token Character, Mapbox access token for rendering the map.
+#' @param mapbox_token Optional Mapbox access token. If supplied, Mapbox buildings can be extruded; otherwise MapLibre uses the configured greenR basemap without a key.
 #' @param output_file Character, name of the output HTML file. Default is "linestring_map.html".
 #' @param color_palette Character, name of the D3 color palette to use. Default is "interpolateViridis".
 #' @param map_center Numeric vector, longitude and latitude of the map center. Default is NULL (computed from data).
@@ -36,10 +36,9 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #'     green_index = runif(5)
 #'   )
 #'   st_crs(lines) <- 4326
-#'   mapbox_token <- "your_mapbox_token"
-#'   create_linestring_3D(lines, "green_index", mapbox_token)
+#'   create_linestring_3D(lines, "green_index")
 #' }
-create_linestring_3D <- function(data, green_index_col, mapbox_token, output_file = "linestring_map.html",
+create_linestring_3D <- function(data, green_index_col, mapbox_token = NULL, output_file = "linestring_map.html",
                                  color_palette = "interpolateViridis", map_center = NULL, map_zoom = 11) {
   if (!inherits(data, "sf") || !nrow(data) ||
       !is.character(green_index_col) || length(green_index_col) != 1L ||
@@ -67,6 +66,26 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
     map_center <- c((bbox$xmin + bbox$xmax) / 2, (bbox$ymin + bbox$ymax) / 2)
   }
 
+  use_mapbox <- is.character(mapbox_token) && length(mapbox_token) == 1L && nzchar(mapbox_token)
+  engine <- if (use_mapbox) "mapboxgl" else "maplibregl"
+  library_url <- if (use_mapbox) "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js" else "https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"
+  css_url <- if (use_mapbox) "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" else "https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css"
+  style_js <- if (use_mapbox) '"mapbox://styles/mapbox/streets-v12"' else .greenr_style_json()
+  token_js <- if (use_mapbox) paste0("mapboxgl.accessToken = ",
+    as.character(jsonlite::toJSON(mapbox_token, auto_unbox = TRUE)), ";") else ""
+  buildings_control <- if (use_mapbox) '<div class="control-group"><label for="showBuildings">Show Buildings:</label><input type="checkbox" id="showBuildings"></div>' else ""
+  buildings_js <- if (use_mapbox) '
+    const layers = map.getStyle().layers;
+    const label = layers.find(layer => layer.type === "symbol" && layer.layout && layer.layout["text-field"]);
+    map.addLayer({id:"3d-buildings",source:"composite","source-layer":"building",
+      filter:["==","extrude","true"],type:"fill-extrusion",minzoom:15,
+      paint:{"fill-extrusion-color":"#aaa","fill-extrusion-height":["get","height"],
+             "fill-extrusion-base":["get","min_height"],"fill-extrusion-opacity":0.6}},
+      label ? label.id : undefined);
+    document.getElementById("showBuildings").addEventListener("change", event =>
+      map.setLayoutProperty("3d-buildings","visibility",event.target.checked ? "visible" : "none"));
+  ' else ""
+
   # Create HTML content with dynamic variable references and legend values
   html_content <- sprintf('
 <!DOCTYPE html>
@@ -75,8 +94,8 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linestring Map</title>
-    <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="%s"></script>
+    <link href="%s" rel="stylesheet" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body { margin: 0; padding: 0; }
@@ -127,16 +146,13 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
             <label for="lineWidthSlider">Line Width: <span id="lineWidthValue">5</span></label>
             <input type="range" id="lineWidthSlider" min="1" max="20" step="1" value="5">
         </div>
-        <div class="control-group">
-            <label for="showBuildings">Show Buildings:</label>
-            <input type="checkbox" id="showBuildings">
-        </div>
+        %s
     </div>
     <script>
-        mapboxgl.accessToken = "%s";
-        const map = new mapboxgl.Map({
+        %s
+        const map = new %s.Map({
             container: "map",
-            style: "mapbox://styles/mapbox/streets-v11",
+            style: %s,
             center: [%f, %f],
             zoom: %d,
             pitch: 45,
@@ -149,6 +165,8 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
 
         const minValue = %f;
         const maxValue = %f;
+        const colorLow = minValue === maxValue ? minValue - 0.5 : minValue;
+        const colorHigh = minValue === maxValue ? maxValue + 0.5 : maxValue;
         const colorPalette = d3.%s;
 
         map.on("load", () => {
@@ -167,51 +185,13 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
                         "interpolate",
                         ["linear"],
                         ["get", "%s"],
-                        minValue, colorPalette(0),
-                        maxValue, colorPalette(1)
+                        colorLow, colorPalette(0),
+                        colorHigh, colorPalette(1)
                     ]
                 }
             });
 
-            // Insert the layer beneath any symbol layer.
-            const layers = map.getStyle().layers;
-            const labelLayerId = layers.find(
-                (layer) => layer.type === "symbol" && layer.layout["text-field"]
-            ).id;
-
-            map.addLayer(
-                {
-                    id: "3d-buildings",
-                    source: "composite",
-                    "source-layer": "building",
-                    filter: ["==", "extrude", "true"],
-                    type: "fill-extrusion",
-                    minzoom: 15,
-                    paint: {
-                        "fill-extrusion-color": "#aaa",
-                        "fill-extrusion-height": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "height"]
-                        ],
-                        "fill-extrusion-base": [
-                            "interpolate",
-                            ["linear"],
-                            ["zoom"],
-                            15,
-                            0,
-                            15.05,
-                            ["get", "min_height"]
-                        ],
-                        "fill-extrusion-opacity": 0.6
-                    }
-                },
-                labelLayerId
-            );
+            %s
 
             document.getElementById("lineWidthSlider").addEventListener("input", (event) => {
                 lineWidth = event.target.value;
@@ -219,16 +199,11 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
                 map.setPaintProperty("linestrings", "line-width", parseInt(lineWidth));
             });
 
-            document.getElementById("showBuildings").addEventListener("change", (event) => {
-                const visibility = event.target.checked ? "visible" : "none";
-                map.setLayoutProperty("3d-buildings", "visibility", visibility);
-            });
-
             map.on("mouseenter", "linestrings", (e) => {
                 map.getCanvas().style.cursor = "pointer";
                 const coordinates = e.lngLat;
                 const greenIndex = e.features[0].properties["%s"];
-                new mapboxgl.Popup()
+                new %s.Popup()
                     .setLngLat(coordinates)
                     .setHTML(`<strong>%s:</strong> ${greenIndex.toFixed(2)}`)
                     .addTo(map);
@@ -236,7 +211,7 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
 
             map.on("mouseleave", "linestrings", () => {
                 map.getCanvas().style.cursor = "";
-                const popups = document.getElementsByClassName("mapboxgl-popup");
+                const popups = document.getElementsByClassName("%s-popup");
                 while (popups[0]) {
                     popups[0].remove();
                 }
@@ -269,11 +244,14 @@ create_linestring_3D <- function(data, green_index_col, mapbox_token, output_fil
             legend.appendChild(legendValues);
         });
 
-        map.addControl(new mapboxgl.NavigationControl());
+        map.addControl(new %s.NavigationControl());
     </script>
 </body>
 </html>
-', green_index_col, mapbox_token, map_center[1], map_center[2], map_zoom, data_json, min_value, max_value, color_palette, green_index_col, green_index_col, green_index_col)
+', library_url, css_url, green_index_col, buildings_control, token_js, engine,
+  style_js, map_center[1], map_center[2], map_zoom, data_json, min_value,
+  max_value, color_palette, green_index_col, buildings_js,
+  green_index_col, engine, green_index_col, engine, engine)
 
   # Save in both interactive and scripted sessions.
   writeLines(html_content, output_file)

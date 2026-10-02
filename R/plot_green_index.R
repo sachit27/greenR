@@ -9,8 +9,8 @@ utils::globalVariables(c("green_index", "coverage_pct", "geometry", "green_index
 #' Users can set various parameters like text size, color palette, resolution, base map, line width, line type, and more.
 #'
 #' @param green_index_data A data frame containing the calculated green index values for each edge.
-#' @param base_map Character, base map to use. Default is "CartoDB.DarkMatter".
-#' Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
+#' @param base_map Character, base map to use. Default is "OpenStreetMap".
+#' Other options include "Stamen.Toner", "OpenStreetMap", "Esri.NatGeoWorldMap",
 #' "MtbMap", "Stamen.TonerLines", and "Stamen.TonerLabels".
 #' @param colors Character vector, colors for the gradient. Default is c("#F0BB62", "#BFDB38", "#367E18").
 #' @param text_size Numeric, size of the text in the plot. Default is 12.
@@ -34,7 +34,7 @@ utils::globalVariables(c("green_index", "coverage_pct", "geometry", "green_index
 #' @importFrom htmlwidgets saveWidget
 #' @export
 plot_green_index <- function(green_index_data,
-                             base_map = "CartoDB.DarkMatter",
+                             base_map = "OpenStreetMap",
                              colors = c("#F0BB62", "#BFDB38", "#367E18"),
                              text_size = 12,
                              resolution = 350,
@@ -61,10 +61,10 @@ plot_green_index <- function(green_index_data,
   if (interactive) {
     edges_sf <- sf::st_transform(edges_sf, 4326)
     plot <- leaflet(data = edges_sf) %>%
-      addProviderTiles(base_map, group = "Selected map") %>%
-      addProviderTiles("CartoDB.Positron", group = "Positron") %>%
+      .greenr_add_tiles(base_map, group = "Selected map") %>%
+      .greenr_add_tiles("Esri.WorldImagery", group = "Imagery") %>%
       addPolylines(color = ~color_palette(green_index), weight = line_width) %>%
-      addLayersControl(baseGroups = c("Selected map", "Positron"),
+      addLayersControl(baseGroups = c("Selected map", "Imagery"),
                        options = layersControlOptions(collapsed = FALSE)) %>%
       addLegend(pal = color_palette, values = ~green_index,
                 title = legend_title, position = "bottomright")
@@ -78,12 +78,15 @@ plot_green_index <- function(green_index_data,
 
   } else {
     # Create a ggplot for static plot
+    context_boundary <- sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(edges_sf)))
     plot <- ggplot2::ggplot() +
+      .greenr_map_context(list(boundary = context_boundary)) +
       ggplot2::geom_sf(data = edges_sf, ggplot2::aes(color = green_index), lwd = line_width, linetype = line_type) +
       ggplot2::scale_color_gradientn(colors = colors) +
       theme +
       ggplot2::theme(text = ggplot2::element_text(size = text_size)) +
-      ggplot2::labs(title = title, x = xlab, y = ylab, color = legend_title) +
+      ggplot2::labs(title = title, x = xlab, y = ylab, color = legend_title,
+        caption = if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else NULL) +
       ggplot2::theme(legend.position = legend_position, axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
 
     # Print the static plot

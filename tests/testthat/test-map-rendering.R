@@ -1,0 +1,80 @@
+test_that("failed plot renders preserve old output and leave no blank file", {
+  d<-tempfile();dir.create(d);p<-file.path(d,"test.png")
+  on.exit(unlink(d,recursive=TRUE))
+  writeBin(charToRaw("previous"),p)
+  bad <- ggplot2::ggplot(data.frame(x=1),ggplot2::aes(x=x,y=missing_column))+ggplot2::geom_point()
+  expect_error(.greenr_save_plot(p,bad,width=2,height=2))
+  expect_equal(readBin(p,"raw",n=8),charToRaw("previous"))
+  expect_equal(list.files(d),"test.png")
+  good<-ggplot2::ggplot(data.frame(x=1:3,y=c(2,4,1)),ggplot2::aes(x,y))+ggplot2::geom_point()
+  .greenr_save_plot(p,good,width=2,height=2,dpi=80)
+  expect_gt(file.info(p)$size,1000)
+})
+
+test_that("static maps render without web tiles and reject empty canyon inputs", {
+  old<-options(greenR.basemap="none");on.exit(options(old))
+  g<-sf::st_as_sf(sf::st_make_grid(sf::st_as_sfc(sf::st_bbox(c(xmin=8.5,ymin=47.3,xmax=8.51,ymax=47.31),crs=4326)),n=c(2,2)))
+  g$priority_score<-c(10,30,60,90);g$tree_need_score<-c(10,30,60,90)
+  g$planting_opportunity_score<-c(20,70,30,80);g$lst_mean_c<-c(20,22,24,26)
+  d<-list(hex=g,boundary=sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(g))))
+  expect_silent(ggplot2::ggplotGrob(plot_priority_action_classes(d)))
+  expect_error(plot_canyon_priority_map(list(canyons=g[0,])),"No canyon")
+  expect_error(plot_canyon_diamond_bivariate(list(canyons=g[0,])),"No canyon")
+  expect_null(.uh_svf_fetch_basemap(d$boundary))
+})
+test_that("green index default interactive map contains no unauthenticated CARTO", {
+  old<-options(greenR.basemap="esri");on.exit(options(old))
+  g<-sf::st_sf(green_index=.5,geometry=sf::st_sfc(sf::st_linestring(matrix(c(8.5,47.3,8.51,47.31),ncol=2,byrow=TRUE)),crs=4326))
+  widget<-plot_green_index(g,interactive=TRUE)
+  txt<-jsonlite::toJSON(widget$x,auto_unbox=TRUE,force=TRUE)
+  expect_false(grepl("cartocdn",txt))
+  expect_match(txt,"arcgisonline")
+})
+test_that("CARTO config requires a key and propagates it without printing it", {
+  old<-options(greenR.basemap="carto");on.exit(options(old))
+  original<-Sys.getenv("CARTO_API_KEY",unset=NA_character_)
+  on.exit(if(is.na(original))Sys.unsetenv("CARTO_API_KEY")else Sys.setenv(CARTO_API_KEY=original),add=TRUE)
+  Sys.unsetenv("CARTO_API_KEY")
+  expect_error(.greenr_basemap(),"CARTO_API_KEY")
+  Sys.setenv(CARTO_API_KEY="test-key-not-a-credential")
+  expect_match(.greenr_basemap()$url,"key=test-key-not-a-credential",fixed=TRUE)
+  expect_match(.greenr_basemap(TRUE)$url,"dark_all",fixed=TRUE)
+  style<-jsonlite::fromJSON(.greenr_style_json())
+  expect_match(style$sources$base$tiles,"key=test-key-not-a-credential",fixed=TRUE)
+  expect_match(style$sources$base$attribution,"CARTO")
+})
+
+test_that("3D HTML maps work without CARTO or Mapbox credentials", {
+  old <- options(greenR.basemap = "esri")
+  on.exit(options(old), add = TRUE)
+  original <- Sys.getenv("CARTO_API_KEY", unset = NA_character_)
+  on.exit(if (is.na(original)) Sys.unsetenv("CARTO_API_KEY") else
+    Sys.setenv(CARTO_API_KEY = original), add = TRUE)
+  Sys.unsetenv("CARTO_API_KEY")
+  road <- sf::st_sf(green_index = c(.3, .7), geometry = sf::st_sfc(
+    sf::st_linestring(rbind(c(8.5, 47.3), c(8.501, 47.301))),
+    sf::st_linestring(rbind(c(8.501, 47.301), c(8.502, 47.302))), crs = 4326))
+  files <- c(tempfile(fileext = ".html"), tempfile(fileext = ".html"))
+  on.exit(unlink(files), add = TRUE)
+  suppressMessages(create_hexmap_3D(road, "green_index", output_file = files[1]))
+  suppressMessages(create_linestring_3D(road, "green_index", output_file = files[2]))
+  txt <- lapply(files, function(x) paste(readLines(x, warn = FALSE), collapse = "\n"))
+  for (html in txt) {
+    expect_match(html, "maplibregl.Map", fixed = TRUE)
+    expect_match(html, "arcgisonline", fixed = TRUE)
+    expect_false(grepl("mapbox://|cartocdn|accessToken", html))
+  }
+  expect_match(txt[[1]], "fill-extrusion", fixed = TRUE)
+  expect_false(grepl("showBuildings", txt[[2]], fixed = TRUE))
+  options(greenR.basemap = "none")
+  offline <- tempfile(fileext = ".html")
+  on.exit(unlink(offline), add = TRUE)
+  suppressMessages(create_hexmap_3D(road, "green_index", output_file = offline))
+  offline_html <- paste(readLines(offline, warn = FALSE), collapse = "\n")
+  expect_match(offline_html, '"sources":{}', fixed = TRUE)
+})
+
+test_that("Mapbox-only accessibility gives actionable missing-key guidance", {
+  expect_error(accessibility_mapbox(NULL, mapbox_token = ""),
+               "MAPBOX_ACCESS_TOKEN.*accessibility_greenspace")
+})

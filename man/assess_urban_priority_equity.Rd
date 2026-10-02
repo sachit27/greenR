@@ -2,15 +2,17 @@
 % Please edit documentation in R/uh_decision.R
 \name{assess_urban_priority_equity}
 \alias{assess_urban_priority_equity}
-\title{Assess equity and inequality index with bootstrap uncertainty}
+\title{Assess descriptive equity and inequality indices}
 \usage{
 assess_urban_priority_equity(priority_data, n_bootstrap = 250)
 }
 \arguments{
 \item{priority_data}{A priority grid dataset returned from build_urban_priority_grid.}
 
-\item{n_bootstrap}{Number of bootstrap iterations for uncertainty estimation (default: 250).}
+\item{n_bootstrap}{Number of independent-hex resamples (default: 250).
+The resulting intervals do not account for spatial autocorrelation and
+must not be used as spatial confidence intervals.}
 }
 \description{
-Assess equity and inequality index with bootstrap uncertainty
+Assess descriptive equity and inequality indices
 }

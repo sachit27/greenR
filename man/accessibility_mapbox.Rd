@@ -6,7 +6,7 @@
 \usage{
 accessibility_mapbox(
   green_area_data,
-  mapbox_token,
+  mapbox_token = Sys.getenv("MAPBOX_ACCESS_TOKEN", unset = ""),
   output_file = "accessibility_map.html",
   initial_zoom = 15,
   initial_pitch = 45,
@@ -16,7 +16,7 @@ accessibility_mapbox(
 \arguments{
 \item{green_area_data}{A list containing green area data.}
 
-\item{mapbox_token}{Character, your Mapbox access token.}
+\item{mapbox_token}{Mapbox access token for the browser-side Mapbox GL and Isochrone APIs. Defaults to \code{MAPBOX_ACCESS_TOKEN}; this function cannot operate without a token. For a map without Mapbox, use \code{accessibility_greenspace()}.}
 
 \item{output_file}{Character, the file path to save the HTML file.}
 

@@ -6,7 +6,7 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #' This function creates a dynamic accessibility map using Mapbox GL JS. The map shows green areas and allows users to generate isochrones for walking times.
 #'
 #' @param green_area_data A list containing green area data.
-#' @param mapbox_token Character, your Mapbox access token.
+#' @param mapbox_token Mapbox access token for the browser-side Mapbox GL and Isochrone APIs. Defaults to `MAPBOX_ACCESS_TOKEN`; this function cannot operate without a token. For a map without Mapbox, use `accessibility_greenspace()`.
 #' @param output_file Character, the file path to save the HTML file.
 #' @param initial_zoom Numeric, the initial zoom level of the map. Default is 15.
 #' @param initial_pitch Numeric, the initial pitch of the map. Default is 45.
@@ -23,8 +23,11 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #'   accessibility_mapbox(green_areas_data, mapbox_token)
 #' }
 #' @export
-accessibility_mapbox <- function(green_area_data, mapbox_token, output_file = "accessibility_map.html",
+accessibility_mapbox <- function(green_area_data, mapbox_token = Sys.getenv("MAPBOX_ACCESS_TOKEN", unset = ""), output_file = "accessibility_map.html",
                                  initial_zoom = 15, initial_pitch = 45, initial_bearing = -17.6) {
+
+  if (!is.character(mapbox_token) || length(mapbox_token) != 1L || !nzchar(mapbox_token))
+    stop("accessibility_mapbox() uses the Mapbox Isochrone API. Set MAPBOX_ACCESS_TOKEN in your user .Renviron or pass mapbox_token; for a Mapbox-free map use accessibility_greenspace().", call. = FALSE)
 
   # Validate and prepare green area data
   if (is.null(green_area_data) || !inherits(green_area_data$osm_polygons, "sf")) {

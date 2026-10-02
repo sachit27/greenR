@@ -6,7 +6,7 @@
 utils::globalVariables(c(
   "height", "height_capped", "mean_chm", "max_chm", "tree_cover_pct",
   "tall_canopy_pct", "gap_pct", "canopy_volume_proxy", "geometry", "grid_id",
-  "threshold_m", "cover_pct", "area_km2", "canopy_type"
+  "threshold_m", "cover_pct", "area_km2", "canopy_type", "aoi_3857"
 ))
 
 `%||%` <- function(a, b) {
@@ -339,6 +339,7 @@ utils::globalVariables(c(
   df$height_capped <- pmin(df$height, height_cap)
 
   p <- ggplot2::ggplot() + .chm_map_theme()
+  if (!is.null(aoi_3857)) p <- p + .greenr_map_context(list(boundary=aoi_3857))
 
   if (!is.null(context$green)) {
     p <- p + ggplot2::geom_sf(data = context$green, fill = "#E8F1E4", color = NA, alpha = 0.70)
@@ -449,18 +450,7 @@ utils::globalVariables(c(
   aoi_3857 <- if (!is.null(aoi_wgs)) sf::st_transform(aoi_wgs, 3857) else NULL
 
   p <- ggplot2::ggplot() + .chm_map_theme()
-  if (!is.null(aoi_3857) && requireNamespace("ggspatial", quietly = TRUE)) {
-    p <- tryCatch(
-      p + ggspatial::annotation_map_tile(
-        type = "cartolight",
-        zoom = NULL,
-        data = aoi_3857,
-        progress = "none",
-        quiet = TRUE
-      ),
-      error = function(e) p
-    )
-  }
+  if (!is.null(aoi_3857)) p <- p + .greenr_map_context(list(boundary=aoi_3857))
 
   outline_layer <- if (!is.null(aoi_3857)) {
     ggplot2::geom_sf(data = aoi_3857, fill = NA, color = "#26354A", linewidth = 0.85, lineend = "round")
@@ -537,8 +527,8 @@ utils::globalVariables(c(
   )
 
   m <- leaflet::leaflet() |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Light") |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark") |>
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Light") |>
+    .greenr_add_tiles(leaflet::providers$Esri.WorldGrayCanvas, group = "Gray canvas") |>
     leaflet::addRasterImage(web_r, colors = pal, opacity = 0.78, group = "Canopy height") |>
     leaflet::addLegend(pal = pal, values = vals, title = "Canopy height (m)", group = "Canopy height") |>
     leaflet::addPolygons(data = aoi_wgs, fill = FALSE, color = "black", weight = 2, group = "AOI")
@@ -572,7 +562,7 @@ utils::globalVariables(c(
 
   m <- m |>
     leaflet::addLayersControl(
-      baseGroups = c("Light", "Dark"),
+      baseGroups = c("Light", "Gray canvas"),
       overlayGroups = c("Canopy height", "Hex mean CHM", "AOI"),
       options = leaflet::layersControlOptions(collapsed = FALSE)
     )

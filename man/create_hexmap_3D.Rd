@@ -2,13 +2,13 @@
 % Please edit documentation in R/create_hexmap_3D.R
 \name{create_hexmap_3D}
 \alias{create_hexmap_3D}
-\title{Create a 3D Hexagon Map Using H3 and Mapbox GL JS}
+\title{Create a 3D Hexagon Map Using H3 and MapLibre GL JS}
 \usage{
 create_hexmap_3D(
   data,
   value_col,
   label_col = NULL,
-  mapbox_token,
+  mapbox_token = NULL,
   output_file = "hexagon_map.html",
   color_palette = "interpolateViridis",
   max_height = 5000,
@@ -24,7 +24,7 @@ create_hexmap_3D(
 
 \item{label_col}{Character, the name of the label column (optional).}
 
-\item{mapbox_token}{Character, your Mapbox access token.}
+\item{mapbox_token}{Optional Mapbox access token. If omitted, uses MapLibre and the configured greenR basemap without a Mapbox key.}
 
 \item{output_file}{Character, the file path to save the HTML file. Default is "hexagon_map.html".}
 
@@ -42,7 +42,7 @@ create_hexmap_3D(
 NULL. The function creates an HTML file and opens it in the viewer or browser if run interactively.
 }
 \description{
-This function creates a 3D hexagon map using H3 and Mapbox GL JS. The input data can be points, linestrings, polygons, or multipolygons.
+This function creates a 3D hexagon map using H3 and MapLibre GL JS by default. The input data can be points, linestrings, polygons, or multipolygons.
 }
 \examples{
 if (interactive()) {
@@ -53,14 +53,10 @@ if (interactive()) {
   data <- data.frame(lon = lon, lat = lat, green_index = green_index)
   data_sf <- sf::st_as_sf(data, coords = c("lon", "lat"), crs = 4326)
 
-  # Specify your Mapbox access token
-  mapbox_token <- "your_mapbox_access_token_here"
-
   # Create the 3D hexagon map
   create_hexmap_3D(
     data = data_sf,
     value_col = "green_index",
-    mapbox_token = mapbox_token,
     output_file = "map.html",
     color_palette = "interpolateViridis"
   )

@@ -1,14 +1,14 @@
 # Declare global variables to avoid R CMD check warnings
 utils::globalVariables(c("lon", "lat", "value"))
 
-#' Create a 3D Hexagon Map Using H3 and Mapbox GL JS
+#' Create a 3D Hexagon Map Using H3 and MapLibre GL JS
 #'
-#' This function creates a 3D hexagon map using H3 and Mapbox GL JS. The input data can be points, linestrings, polygons, or multipolygons.
+#' This function creates a 3D hexagon map using H3 and MapLibre GL JS by default. The input data can be points, linestrings, polygons, or multipolygons.
 #'
 #' @param data An sf object containing geographical data.
 #' @param value_col Character, the name of the value column.
 #' @param label_col Character, the name of the label column (optional).
-#' @param mapbox_token Character, your Mapbox access token.
+#' @param mapbox_token Optional Mapbox access token. If omitted, uses MapLibre and the configured greenR basemap without a Mapbox key.
 #' @param output_file Character, the file path to save the HTML file. Default is "hexagon_map.html".
 #' @param color_palette Character, the D3 color scheme to use. Default is "interpolateViridis".
 #' @param max_height Numeric, the maximum height for the hexagons. Default is 5000.
@@ -29,20 +29,16 @@ utils::globalVariables(c("lon", "lat", "value"))
 #'   data <- data.frame(lon = lon, lat = lat, green_index = green_index)
 #'   data_sf <- sf::st_as_sf(data, coords = c("lon", "lat"), crs = 4326)
 #'
-#'   # Specify your Mapbox access token
-#'   mapbox_token <- "your_mapbox_access_token_here"
-#'
 #'   # Create the 3D hexagon map
 #'   create_hexmap_3D(
 #'     data = data_sf,
 #'     value_col = "green_index",
-#'     mapbox_token = mapbox_token,
 #'     output_file = "map.html",
 #'     color_palette = "interpolateViridis"
 #'   )
 #' }
 #' @export
-create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
+create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token = NULL,
                              output_file = "hexagon_map.html",
                              color_palette = "interpolateViridis",
                              max_height = 5000,
@@ -54,6 +50,12 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
   if (!inherits(data, "sf")) {
     stop("Input data must be an sf object")
   }
+  if (!value_col %in% names(data) || !is.numeric(data[[value_col]]) ||
+      !nrow(data) || any(!is.finite(data[[value_col]])))
+    stop("value_col must name a finite numeric column in a nonempty sf layer.", call. = FALSE)
+  if (length(h3_resolution) != 1L || !is.finite(h3_resolution) ||
+      h3_resolution != as.integer(h3_resolution) || h3_resolution < 0 || h3_resolution > 15)
+    stop("h3_resolution must be an integer from 0 to 15.", call. = FALSE)
 
   # Transform data to WGS 84 (EPSG:4326)
   data <- sf::st_transform(data, 4326)
@@ -78,6 +80,22 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
     map_center <- c(mean(data_prepared$lon), mean(data_prepared$lat))
   }
 
+  use_mapbox <- is.character(mapbox_token) && length(mapbox_token) == 1L && nzchar(mapbox_token)
+  engine <- if (use_mapbox) "mapboxgl" else "maplibregl"
+  library_url <- if (use_mapbox) "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js" else "https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"
+  css_url <- if (use_mapbox) "https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" else "https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css"
+  styles_js <- if (use_mapbox) {
+    as.character(jsonlite::toJSON(c("mapbox://styles/mapbox/dark-v11",
+      "mapbox://styles/mapbox/light-v11", "mapbox://styles/mapbox/streets-v12")))
+  } else paste0("[", .greenr_style_json(TRUE), ",", .greenr_style_json(FALSE), "]")
+  style_options <- if (use_mapbox) {
+    '<option value="0">Dark</option><option value="1">Light</option><option value="2">Streets</option>'
+  } else {
+    '<option value="0">Dark</option><option value="1">Light</option>'
+  }
+  token_js <- if (use_mapbox) paste0("mapboxgl.accessToken = ",
+    as.character(jsonlite::toJSON(mapbox_token, auto_unbox = TRUE)), ";") else ""
+
   # Create HTML content
   html_content <- sprintf('
 <!DOCTYPE html>
@@ -86,9 +104,9 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hexagon Map</title>
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/h3-js"></script>
+    <script src="%s"></script>
+    <link href="%s" rel="stylesheet" />
+    <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body { margin: 0; padding: 0; }
@@ -146,19 +164,16 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
         <div class="control-group">
             <label for="layerSelect">Select Layer:</label>
             <select id="layerSelect">
-                <option value="mapbox://styles/mapbox/dark-v10">Dark</option>
-                <option value="mapbox://styles/mapbox/light-v10">Light</option>
-                <option value="mapbox://styles/mapbox/streets-v11">Streets</option>
-                <option value="mapbox://styles/mapbox/outdoors-v11">Outdoors</option>
-                <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
+                %s
             </select>
         </div>
     </div>
     <script>
-        mapboxgl.accessToken = "%s";
-        const map = new mapboxgl.Map({
+        %s
+        const mapStyles = %s;
+        const map = new %s.Map({
             container: "map",
-            style: "mapbox://styles/mapbox/dark-v10",
+            style: mapStyles[0],
             center: [%f, %f],
             zoom: %d,
             pitch: 60,
@@ -199,11 +214,15 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
             });
 
             const maxValue = Math.max(...features.map(f => f.properties.value));
+            const minValue = Math.min(...features.map(f => f.properties.value));
+            const colorLow = minValue === maxValue ? minValue - 0.5 : minValue;
+            const colorHigh = minValue === maxValue ? maxValue + 0.5 : maxValue;
             features.forEach(f => {
-                f.properties.height = (f.properties.value / maxValue) * maxHeight;
+                f.properties.height = minValue === maxValue ? maxHeight / 2 :
+                    ((f.properties.value - minValue) / (maxValue - minValue)) * maxHeight;
             });
 
-            const colorScale = d3.scaleSequential(d3.%s).domain([0, maxValue]);
+            const colorScale = d3.scaleSequential(d3.%s).domain([colorLow, colorHigh]);
 
             if (map.getSource("hexagons")) {
                 map.getSource("hexagons").setData({ type: "FeatureCollection", features: features });
@@ -222,8 +241,8 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
                             "interpolate",
                             ["linear"],
                             ["get", "value"],
-                            0, colorScale(0),
-                            maxValue, colorScale(maxValue)
+                            colorLow, colorScale(colorLow),
+                            colorHigh, colorScale(colorHigh)
                         ],
                         "fill-extrusion-height": ["get", "height"],
                         "fill-extrusion-base": 0,
@@ -232,7 +251,7 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
                 });
 
                 map.on("click", "hexagons", (e) => {
-                    new mapboxgl.Popup()
+                    new %s.Popup()
                         .setLngLat(e.lngLat)
                         .setHTML(`<strong>Value:</strong> ${e.features[0].properties.value.toLocaleString()}`)
                         .addTo(map);
@@ -261,16 +280,21 @@ create_hexmap_3D <- function(data, value_col, label_col = NULL, mapbox_token,
         });
 
         document.getElementById("layerSelect").addEventListener("change", (event) => {
-            map.setStyle(event.target.value);
+            map.setStyle(mapStyles[Number(event.target.value)]);
         });
 
-        map.on("load", updateMap);
+        map.on("style.load", updateMap);
 
-        map.addControl(new mapboxgl.NavigationControl());
+        map.addControl(new %s.NavigationControl());
     </script>
 </body>
 </html>',
-                          value_col, max_height, max_height, h3_resolution, h3_resolution, mapbox_token, map_center[1], map_center[2], map_zoom, data_json, h3_resolution, max_height, color_palette)
+                          library_url, css_url,
+                          value_col, max_height, max_height, h3_resolution, h3_resolution,
+                          style_options, token_js,
+                          styles_js, engine,
+                          map_center[1], map_center[2], map_zoom, data_json, h3_resolution, max_height,
+                          color_palette, engine, engine)
 
   writeLines(html_content, output_file)
 

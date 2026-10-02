@@ -29,9 +29,9 @@
 | Feature | Description |
 |---------|-------------|
 | 🌲 **Sky View Factor (SVF) 3D** | WebGL 3D structural canopy explorers and network-corridor SVF metrics |
-| 🌡️ **Urban Heat Decision Suite** | Multi-criteria diamond bivariate planting prioritization with street canyon physics |
+| 🌡️ **Urban Heat Decision Suite** | Heuristic within-city heat and canopy-gap screening; street orientation is a proxy, not a microclimate simulation |
 | 🌳 **Green Index** | Street-segment greenness scores with configurable distance decay |
-| 🌴 **Canopy Height Modeling** | 1m resolution analysis using Meta/WRI ALS GEDI v6 global dataset |
+| 🌴 **Canopy Height Modeling** | Analysis of Meta CHMv2 (DINOv3-derived) canopy-height rasters at their native resolution |
 | 🚶 **Accessibility Analysis** | Network-based isochrone mapping with walking/cycling routing |
 | 📊 **Spatial Inequality** | H3 hexagonal binning, Gini indices, and Lorenz inequality curves |
 | 🧭 **Directional Analysis** | Compass-oriented green space accessibility corridors |
@@ -50,7 +50,7 @@ Start here if you are new to the package. The three core workflows are:
 |---|---|---|
 | Street greenness | street-level greenness scores from OSM network data, typically after `get_osm_data()` | `calculate_green_index()` |
 | SVF analysis | sky-view factor analysis using `elevatr` terrain, Global Building Atlas buildings, Meta CHMv2 canopy, and ray-casting | `uh_svf()` |
-| Urban heat priority | multi-layer planting-priority analysis using GHSL population by default, plus Landsat-9 LST, Sentinel-2 NDVI, Meta CHM, and OSM/GBA layers; reports population-weighted Gini statistics | `uh_decision()` |
+| Urban heat priority | within-city screening using WorldPop 2020 by default, quality-masked paged Landsat Collection 2 LST and Sentinel-2 L2A NDVI mosaics, Meta CHMv2, and OSM/GBA layers; reports descriptive population-weighted Gini statistics | `uh_decision()` |
 
 Other exported tools are grouped below so they are easier to find:
 
@@ -58,7 +58,7 @@ Other exported tools are grouped below so they are easier to find:
 |---|---|
 | Data access and preprocessing | `get_osm_data()`, `convert_to_point()`, `calculate_percentage()` |
 | Green space and accessibility | `accessibility_greenspace()`, `accessibility_mapbox()`, `analyze_green_accessibility()`, `create_accessibility_visualizations()`, `nearest_greenspace()`, `visualize_green_spaces()` |
-| Priority and equity workflows | `analyze_and_visualize_uhi()`, `analyze_green_and_tree_count_density()`, `assess_urban_priority_equity()`, `build_urban_priority_grid()`, `build_urban_block_priority()`, `build_street_canyon_priority()`, `emulate_canyon_microclimate()`, `green_space_clustering()`, `hexGreenSpace()`, `gssi()` |
+| Priority and equity workflows | `analyze_and_visualize_uhi()`, `analyze_green_and_tree_count_density()`, `assess_urban_priority_equity()`, `build_urban_priority_grid()`, `build_urban_block_priority()`, `build_street_canyon_priority()`, `screen_canyon_orientation()`, `green_space_clustering()`, `hexGreenSpace()`, `gssi()` |
 | Green index and canopy tools | `plot_green_index()`, `chm_analysis()`, `calculate_and_visualize_GVI()` |
 | Priority and map visualizations | `plot_priority_bivariate()`, `plot_priority_diamond_bivariate()`, `plot_priority_action_classes()`, `plot_canyon_priority_map()`, `plot_canyon_diamond_bivariate()`, `plot_hybrid_field_map()`, `plot_priority_interactive()` |
 | 3D and leaflet outputs | `create_hexmap_3D()`, `create_linestring_3D()`, `plot_priority_3d_explorer()`, `plot_priority_3d_isometric()`, `save_3d_deckgl_dashboard()`, `plot_multilayer_leaflet()`, `save_as_leaflet()` |
@@ -180,7 +180,7 @@ SVF is modeled geometrically as the fraction of visible sky from a pedestrian pe
 ---
 
 ### 🌐 Example 1: Purely Online Mode (Zero local data setup)
-Automatically downloads London street networks, terrain elevations, building vectors, and Meta/WRI 1m GEDI canopy height data on-the-fly!
+Automatically queries London street networks, terrain elevations, building vectors, and Meta CHMv2 canopy height data on-the-fly. Online SVF is a coarse city-screening mode; use local high-resolution terrain and buildings for street-canyon inference.
 ```R
 library(greenR)
 
@@ -246,7 +246,7 @@ svf_results <- uh_svf(
   terrain_source   = "elevatr",
   buildings_source = "gba",
   sample_mode      = "both",                  # Computes both street and building SVF for 3D mapping
-  canopy_object    = my_lidar_chm,            # Overrides global GEDI CHM with local raster
+  canopy_object    = my_lidar_chm,            # Overrides Meta CHMv2 with local raster
   include_leaflet  = TRUE,
   include_3d       = TRUE,
   output_dir       = "./zurich_svf_hybrid",
@@ -373,9 +373,9 @@ Best for **rapid scoping, exploratory analysis, and multi-city comparisons**. `g
 
 ### Automated Sources
 *   **OpenStreetMap (OSM)**: Street networks, buildings, parks, and tree counts are fetched using a high-performance Overpass API retrieval pipeline.
-*   **Satellite Imagery (NDVI & Land Surface Temp)**: Automatically queried and composited from Landsat 8/9 and Sentinel-2 STAC endpoints.
-*   **Canopy Height Model (CHM)**: Fetched at 1-meter resolution using the Meta/WRI global LiDAR ALS GEDI v6 dataset.
-*   **Population**: Aggregated dynamically from the Joint Research Centre’s Global Human Settlement Layer (GHSL) raster database.
+*   **Satellite imagery (NDVI and land surface temperature)**: Paged Planetary Computer STAC results are read until quality-masked scenes cover at least 99.5% of the analysis boundary, the catalog is exhausted, or the 12-page limit is reached. Within each page, scenes are tried in scene-level cloud-cover order; each output pixel takes the first clear valid observation. The output includes scene IDs, acquisition dates, cloud-cover values, per-scene pixel contributions, page count, coverage, and a source-index raster in the cache. A query that cannot reach the coverage threshold stops before priority scoring; there is no gap filling. The mosaic mixes acquisition dates and is suitable for screening, not an instantaneous temperature map or field validation.
+*   **Canopy height model (CHM)**: Meta CHMv2 (DINOv3-derived); intersecting tiles are mosaicked and the priority workflow aggregates to about 10 m.
+*   **Population**: WorldPop 2020 online or a user-supplied local raster (including GHSL). Source identity is retained in results and captions.
 
 ### Code Example
 ```R
@@ -443,7 +443,7 @@ results <- uh_decision(
 <details>
 <summary>⚡ <strong>Mode 3: Hybrid Mode (Online Streets + Local Proprietary Overrides)</strong></summary>
 
-Best for **maximizing accuracy while saving setup time**. You let `greenR` download baseline street networks and satellite composites online, but seamlessly override specific layers with your high-resolution local datasets (e.g., proprietary municipal LiDAR rasters or internal census grids).
+Use local high-resolution datasets to replace online screening layers, including municipal LiDAR rasters and census grids. The heat-priority workflow now builds a clear-pixel mosaic from multiple satellite scenes when one acquisition leaves gaps. Inspect `results$priority_grid$scenes` and the cached `_source.tif` raster before interpreting a temporally mixed mosaic.
 
 ### Code Example
 ```R
@@ -458,7 +458,7 @@ local_lidar_chm <- terra::rast("data/municipal_lidar_chm.tif")
 results <- uh_decision(
   city_name        = "Zurich, Switzerland",
   hex_size_m       = 80,
-  local_population = local_pop_grid,   # overrides online GHSL pop
+  local_population = local_pop_grid,   # overrides online WorldPop population
   local_chm        = local_lidar_chm,  # overrides online 1m Meta CHM
   output_dir       = "./zurich_hybrid_outputs"
 )
@@ -547,26 +547,28 @@ map <- plot_green_index(green_index)
 map <- plot_green_index(green_index, colors = c("#FF0000", "#00FF00"), line_width = 1, line_type = "dashed")
 ```
 
-#### 3D Linestring Map using Mapbox GL JS
-This map is designed to visualize linear features such as roads, trails, or any other types of linestring data. This can be particularly useful for visualizing connectivity, transportation networks, or other linear spatial patterns. The function supports interactive controls for adjusting the line width and toggling building visibility on the map. It accepts linestring data and automatically processes it to create a visually appealing 3D map.
+#### Pitched linestring map
+This map visualizes roads, trails, and other lines with a pitched camera. It uses MapLibre and the configured key-free Esri basemap by default. Supply a Mapbox token only if you want the optional Mapbox building extrusion; the lines themselves remain a 2D layer.
 
 ```R
-mapbox_token <- "your_mapbox_access_token_here"
-create_linestring_3D(green_index, "green_index", mapbox_token)
+create_linestring_3D(green_index, "green_index")
 ```
 
 #### Customize Interactive Base Map (Leaflet version)
-In interactive mode, you can change the base map to various themes.
+The default Esri Gray tile source works without a greenR API key (a live network connection is still needed). The same choice applies to Leaflet, MapLibre 3D, and static tile-backed maps. For a map with no remote basemap, use `options(greenR.basemap = "none")`; the analysis layers remain visible. `options(greenR.basemap = "osm")` is intended for live interactive viewing only, not bulk static exports. For CARTO styles, [request a CARTO Basemaps key](https://www.carto.com/basemaps/apikey/), put `CARTO_API_KEY=...` in your user `.Renviron`, restart R, and choose `options(greenR.basemap = "carto")`. CARTO's key is placed in browser tile URLs, so share exported HTML only with that in mind. See [CARTO's basemap key and attribution rules](https://www.carto.com/basemaps/apikey/).
 ```R
-# Create an interactive plot using Leaflet
-map <- plot_green_index(green_index, interactive = TRUE, base_map = "CartoDB.DarkMatter")
+# Default: key-free Esri tiles
+options(greenR.basemap = "esri")
+map <- plot_green_index(green_index, interactive = TRUE)
 
 # To view the plot in the console, use:
 print(map)
 
-# Use a light-themed base map
-map <- plot_green_index(green_index, interactive = TRUE, base_map = "CartoDB.Positron")
-print(map)
+# Optional CARTO styles require a CARTO Basemaps key:
+# set CARTO_API_KEY in your user .Renviron, restart R, then:
+# options(greenR.basemap = "carto")
+# map <- plot_green_index(green_index, interactive = TRUE,
+#                         base_map = "CartoDB.Positron")
 ```
 
 You can save the interactive map using the htmlwidgets library.
@@ -575,16 +577,13 @@ library(htmlwidgets)
 saveWidget(map, file = "my_plot.html")
 ```
 
-#### 3D Hex Map (Mapbox version)
-The `create_hexmap_3D` function generates a 3D hexagon map using H3 hexagons and Mapbox GL JS. This map can visualize various types of geographical data, such as points, linestrings, polygons, and multipolygons. It is particularly useful for visualizing density or green indices over an area. It automatically processes these geometries, converting them to points for visualization. Users can dynamically change the radius of the hexagons and their heights to better represent the data. The resulting map includes controls for adjusting hexagon height and H3 resolution, and selecting different Mapbox styles.
+#### 3D Hex Map (MapLibre default)
+`create_hexmap_3D()` extrudes H3 hexagons in MapLibre without Mapbox credentials. The default Esri basemap also needs no CARTO key. You can pass `mapbox_token` to use Mapbox styles; that token will appear in the generated HTML, as required for browser-side map access.
 
 ```R
-mapbox_token <- "your_mapbox_access_token_here"
-
 create_hexmap_3D(
   data = green_index,
   value_col = "green_index",
-  mapbox_token = mapbox_token,
   output_file = "map.html",
   color_palette = "interpolateViridis"
 )
@@ -680,10 +679,9 @@ result$lorenz_plot # Lorenz curve
 ### Isochrone-Based Accessibility
 
 #### Mapbox Version (Dynamic)
-The `accessibility_mapbox` function creates an accessibility map using Mapbox GL JS. This map shows green areas and allows users to generate isochrones for walking times. The resulting HTML file includes interactive features for changing the walking time and moving the location marker dynamically.
+The `accessibility_mapbox` function uses both Mapbox GL JS and the Mapbox Isochrone API, so it **requires** a Mapbox access token. Save `MAPBOX_ACCESS_TOKEN=...` in your user `.Renviron` and restart R, or pass `mapbox_token` explicitly. The token is embedded in the browser-side HTML. For a Mapbox-free accessibility map, use `accessibility_greenspace()` below.
 ```R
-mapbox_token <- "your_mapbox_access_token_here"
-accessibility_mapbox(green_areas_data, mapbox_token)
+accessibility_mapbox(green_areas_data)
 ```
 
 #### Leaflet Version (Multi-Tier)
@@ -812,11 +810,11 @@ result$export_results("zurich_uhi", formats = c("geojson", "csv", "gpkg", "shp")
 
 ### 🔬 Details & code
 
-### Canopy Height Model (CHM) Analysis with ALS GEDI Data
+### Canopy Height Model (CHM) Analysis with Meta CHMv2 Data
 
-The `chm_analysis()` function enables robust analysis and visualization of canopy height using Meta & WRI’s global 1m ALS GEDI v6 dataset. This function automatically downloads, mosaics, and processes high-resolution canopy height raster tiles for any area of interest, defined by a city name, bounding box, GeoJSON, or user-supplied `.tif` file.
+The `chm_analysis()` function analyzes Meta CHMv2 canopy-height data. It reads intersecting raster tiles for an area of interest defined by a city name, bounding box, GeoJSON, or user-supplied `.tif` file.
 
-- **Data Source**: Meta & WRI 1m ALS GEDI v6 global canopy height model (2024), covering most vegetated land worldwide.
+- **Data Source**: Meta CHMv2, a DINOv3-derived global canopy-height model; coverage and quality should be checked for each location.
 - **Features**: Computes statistics, generates publication-quality maps and interactive web maps, and quantifies tree cover above a user-defined height threshold (meters).
 - **Performance**: Processing may take significant time for large regions due to high data volume and tile downloads.
 

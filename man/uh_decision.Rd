@@ -21,6 +21,8 @@ uh_decision(
   lst_datetime = "2025-06-01/2025-08-31",
   cache_dir = NULL,
   use_cache = FALSE,
+  satellite_max_pages = 12L,
+  satellite_min_coverage = 0.995,
   w_heat = 0.6,
   w_pop = 0.4,
   w_exposure = 0.55,
@@ -76,6 +78,10 @@ uh_decision(
 \item{cache_dir}{Local caching directory.}
 
 \item{use_cache}{Logical. If TRUE, uses cached data if available. Default is FALSE.}
+
+\item{satellite_max_pages}{Maximum STAC result pages to inspect per satellite indicator (50 items per page; default 12). Increase for large or cloudy areas.}
+
+\item{satellite_min_coverage}{Minimum clear-pixel fraction across the analysis boundary required before scoring (default 0.995). Lower values permit explicit partial-coverage screening.}
 
 \item{w_heat}{MCDA weight for LST (default 0.60).}
 
@@ -142,7 +148,8 @@ WorldPop/GHSL, and OpenStreetMap).
 
   # Example 1: Complete Online Mode (Fast default)
   # Bypasses local caching by default; dynamically fetches and window-clips GHSL
-  # 100m Population, Sentinel-2 NDVI, Landsat-9 LST, Meta CHM, and OSM layers.
+  # WorldPop population, selected Sentinel-2 NDVI and Landsat LST scenes,
+  # Meta CHMv2, and OSM layers. Full valid coverage is required.
   results <- uh_decision(
     city_name = "Basel, Switzerland",
     hex_size_m = 100,

@@ -69,8 +69,8 @@ hexGreenSpace <- function(green_areas_data = NULL, tree_data = NULL,
   palette <- leaflet::colorNumeric(color_palette, domain = grid$coverage_pct)
   map <- leaflet::leaflet(grid) |>
     leaflet::addTiles(group = "OSM") |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron,
-                              group = "Positron") |>
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap,
+                              group = "Basemap") |>
     leaflet::addPolygons(fillColor = ~palette(coverage_pct),
                          fillOpacity = 0.8, color = "black", weight = 1,
                          group = "Hex Bins",
@@ -79,7 +79,7 @@ hexGreenSpace <- function(green_areas_data = NULL, tree_data = NULL,
                        values = ~coverage_pct,
                        title = "Green-space coverage (%)") |>
     leaflet::addLayersControl(
-      baseGroups = c("OSM", "Positron"), overlayGroups = "Hex Bins",
+      baseGroups = c("OSM", "Basemap"), overlayGroups = "Hex Bins",
       options = leaflet::layersControlOptions(collapsed = TRUE))
   distribution <- data.frame(coverage_pct = grid$coverage_pct)
   violin <- ggplot2::ggplot(distribution,

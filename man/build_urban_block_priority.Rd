@@ -8,8 +8,8 @@ build_urban_block_priority(
   priority_data,
   w_heat = 0.5,
   w_pop = 0.5,
-  w_ndvi = 0.5,
-  w_canopy = 0.5
+  w_ndvi = 1,
+  w_canopy = 0
 )
 }
 \arguments{
@@ -19,9 +19,10 @@ build_urban_block_priority(
 
 \item{w_pop}{Weight of Population in Heat Exposure index (default: 0.50).}
 
-\item{w_ndvi}{Weight of NDVI deficit in Cooling Deficit index (default: 0.50).}
+\item{w_ndvi}{Weight of NDVI deficit in cooling deficit (default: 1).}
 
-\item{w_canopy}{Weight of canopy deficit in Cooling Deficit index (default: 0.50).}
+\item{w_canopy}{Optional canopy-deficit weight (default: 0); positive values
+count canopy in both need and the canopy-gap opportunity proxy.}
 }
 \description{
 Morphological Urban Block Subdivision and priority scoring engine (Superblocks Scale)

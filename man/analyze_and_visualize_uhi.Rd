@@ -74,7 +74,8 @@ Green_Pct, Built_Pct, Water_Pct, Gi_Star, Hotspot_Category, etc.}
 }
 }
 \item{stats}{A list with descriptive statistics, correlations, regression results,
-and spatial autocorrelation (Moran's I)}
+and spatial autocorrelation (Moran's I). Correlation p-values are NA
+because independent-hex tests do not account for spatial dependence.}
 \item{meta}{Metadata including location, data sources, processing parameters,
 and timing information}
 \item{export_geojson}{Function to export results to GeoJSON}
