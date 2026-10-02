@@ -37,6 +37,8 @@
 #' @param ndvi_datetime Date range for Sentinel-2 NDVI.
 #' @param lst_datetime Date range for Landsat LST.
 #' @param cache_dir Local caching directory.
+#' @param satellite_max_pages Maximum STAC result pages to inspect per satellite indicator (50 items per page; default 12). Increase for large or cloudy areas.
+#' @param satellite_min_coverage Minimum clear-pixel fraction across the analysis boundary required before scoring (default 0.995). Lower values permit explicit partial-coverage screening.
 #' @param w_heat MCDA weight for LST (default 0.60).
 #' @param w_pop MCDA weight for Population (default 0.40).
 #' @param w_exposure MCDA weight for Heat Exposure (default 0.55).
@@ -74,7 +76,8 @@
 #'
 #'   # Example 1: Complete Online Mode (Fast default)
 #'   # Bypasses local caching by default; dynamically fetches and window-clips GHSL
-#'   # 100m Population, Sentinel-2 NDVI, Landsat-9 LST, Meta CHM, and OSM layers.
+#'   # WorldPop population, selected Sentinel-2 NDVI and Landsat LST scenes,
+#'   # Meta CHMv2, and OSM layers. Full valid coverage is required.
 #'   results <- uh_decision(
 #'     city_name = "Basel, Switzerland",
 #'     hex_size_m = 100,
@@ -136,6 +139,8 @@ uh_decision <- function(
   lst_datetime = "2025-06-01/2025-08-31",
   cache_dir = NULL,
   use_cache = FALSE,
+  satellite_max_pages = 12L,
+  satellite_min_coverage = 0.995,
   w_heat = 0.60,
   w_pop = 0.40,
   w_exposure = 0.55,
@@ -177,6 +182,8 @@ uh_decision <- function(
     lst_datetime = lst_datetime,
     cache_dir = cache_dir,
     use_cache = use_cache,
+    satellite_max_pages = satellite_max_pages,
+    satellite_min_coverage = satellite_min_coverage,
     w_heat = w_heat,
     w_pop = w_pop,
     w_exposure = w_exposure,
@@ -201,7 +208,7 @@ uh_decision <- function(
     centroid_wgs84 <- sf::st_transform(sf::st_centroid(sf::st_union(priority_data$boundary)), 4326)
     as.numeric(sf::st_coordinates(centroid_wgs84)[, "Y"])
   }, error = function(e) 46.2)
-  canyon_data <- emulate_canyon_microclimate(canyon_data, latitude = city_lat)
+  canyon_data <- screen_canyon_orientation(canyon_data, latitude = city_lat)
 
   # 4. Optional file writing and visualisations
   if (!is.null(output_dir)) {
@@ -214,37 +221,37 @@ uh_decision <- function(
       message("   [cartography] Plotting Block-Level Hybrid Field Map...")
       tryCatch({
         hybrid_field_blocks <- plot_hybrid_field_map(block_data, title = sprintf("%s: Hybrid Field Map (Blocks)", city_name), palette = palette_quadrant)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_hybrid_field_blocks.png")), hybrid_field_blocks, width = 14, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_hybrid_field_blocks.png")), hybrid_field_blocks, width = 14, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Block hybrid field map failed: ", e$message))
 
       message("   [cartography] Plotting Hexagon-Level Hybrid Field Map...")
       tryCatch({
         hybrid_field_hex <- plot_hybrid_field_map(priority_data, title = sprintf("%s: Hybrid Field Map (Hexagons)", city_name), palette = palette_quadrant)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_hybrid_field_hexagons.png")), hybrid_field_hex, width = 14, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_hybrid_field_hexagons.png")), hybrid_field_hex, width = 14, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Hex hybrid field map failed: ", e$message))
 
       message("   [cartography] Plotting Top 5% Action-Class Map (Blocks Scale)...")
       tryCatch({
         action_blocks <- plot_priority_action_classes(block_data, title = sprintf("%s: Tree-planting decision map (Blocks)", city_name), palette = palette_action)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_action_classes_blocks.png")), action_blocks, width = 13, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_action_classes_blocks.png")), action_blocks, width = 13, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Block action-class map failed: ", e$message))
 
       message("   [cartography] Plotting Top 5% Action-Class Map (Hexagons Scale)...")
       tryCatch({
         action_hex <- plot_priority_action_classes(priority_data, title = sprintf("%s: Tree-planting decision map (Hexagons)", city_name), palette = palette_action)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_action_classes_hexagons.png")), action_hex, width = 13, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_action_classes_hexagons.png")), action_hex, width = 13, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Hex action-class map failed: ", e$message))
 
       message("   [cartography] Plotting Street Canyon Bivariate Map...")
       tryCatch({
         canyon_biv <- plot_canyon_diamond_bivariate(canyon_data, title = sprintf("%s: Street Canyon Climate Shading Priorities", city_name), palette = palette_canyon_biv)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_street_canyon_bivariate.png")), canyon_biv, width = 13, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_street_canyon_bivariate.png")), canyon_biv, width = 13, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Canyon bivariate map failed: ", e$message))
 
       message("   [cartography] Plotting Street Canyon Priority Map...")
       tryCatch({
         canyon_pri <- plot_canyon_priority_map(canyon_data, title = sprintf("%s: Street Canyon Planting Priorities", city_name), palette = palette_canyon)
-        ggplot2::ggsave(file.path(output_dir, paste0(prefix, "_street_canyon_priorities.png")), canyon_pri, width = 13, height = 9, dpi = 240, bg = "white")
+        .greenr_save_plot(file.path(output_dir, paste0(prefix, "_street_canyon_priorities.png")), canyon_pri, width = 13, height = 9, dpi = 240, bg = "white")
       }, error = function(e) message("   [!] Canyon priority map failed: ", e$message))
     }
 
@@ -264,7 +271,7 @@ uh_decision <- function(
       message("   [web] Creating Interactive Multilayer Leaflet Web Map...")
       tryCatch({
         m_leaflet <- plot_multilayer_leaflet(block_data, canyon_data, palette = palette_canyon)
-        htmlwidgets::saveWidget(m_leaflet, file = file.path(getwd(), output_dir, paste0(prefix, "_multilayer_leaflet.html")), selfcontained = FALSE)
+        htmlwidgets::saveWidget(m_leaflet, file = file.path(normalizePath(output_dir), paste0(prefix, "_multilayer_leaflet.html")), selfcontained = FALSE)
       }, error = function(e) message("   [!] Leaflet multilayer web map failed: ", e$message))
     }
 
@@ -277,7 +284,7 @@ uh_decision <- function(
       }, error = function(e) message("   [!] 3D neighborhood explorer failed: ", e$message))
     }
 
-    message(sprintf("--- [uh_decision] Done. Requested outputs written successfully to: %s ---", output_dir))
+    message(sprintf("--- [uh_decision] Finished output attempts in: %s (review any failures reported above) ---", output_dir))
   }
 
   list(
@@ -310,6 +317,8 @@ uh_decision <- function(
 #' @param lst_datetime Date range for Landsat LST.
 #' @param cache_dir Local caching directory.
 #' @param use_cache Logical. If TRUE, uses cached data if available. Default is FALSE.
+#' @param satellite_max_pages Maximum STAC result pages to inspect per indicator (50 items per page; default 12).
+#' @param satellite_min_coverage Minimum clear-pixel fraction across the analysis boundary required before scoring (default 0.995).
 #' @param w_heat MCDA weight for LST.
 #' @param w_pop MCDA weight for Population.
 #' @param w_exposure MCDA weight for Heat Exposure.
@@ -340,6 +349,8 @@ build_urban_priority_grid <- function(
   lst_datetime = "2025-06-01/2025-08-31",
   cache_dir = NULL,
   use_cache = FALSE,
+  satellite_max_pages = 12L,
+  satellite_min_coverage = 0.995,
   # Expose MCDA weights for rigorous sensitivity calibration (UN HDI-style composite indices)
   w_heat = 0.60,
   w_pop = 0.40,
@@ -427,9 +438,11 @@ build_urban_priority_grid <- function(
       local_population
     }
   } else {
-    .fetch_population_ghsl(boundary, cache_dir = cache_dir, city_cache_dir = city_cache_dir, fallback_to_proxy = fallback_to_proxy, use_cache = use_cache)
+    .fetch_population_worldpop(boundary, cache_dir = cache_dir, city_cache_dir = city_cache_dir, fallback_to_proxy = fallback_to_proxy, use_cache = use_cache)
   }
   hex_pop <- .summarise_population_hex(hex_grid, population_raster)
+  population_source <- if (!is.null(local_population)) "local population raster" else
+    attr(population_raster, "greenr_source") %||% "population source unrecorded"
 
   # 4. Get Global Building Atlas Footprints
   gba_buildings <- if (!is.null(local_buildings)) {
@@ -458,7 +471,8 @@ build_urban_priority_grid <- function(
     message("[ndvi] Using local NDVI raster.")
     list(raster = local_ndvi, item_id = "local", datetime = "local")
   } else {
-    .fetch_ndvi_stac(boundary, ndvi_datetime, city_cache_dir, use_cache = use_cache)
+    .fetch_ndvi_stac(boundary, ndvi_datetime, city_cache_dir, use_cache = use_cache,
+                     max_pages = satellite_max_pages, min_coverage = satellite_min_coverage)
   }
   hex_ndvi <- .summarise_ndvi_hex(hex_grid, ndvi_data$raster)
 
@@ -467,7 +481,8 @@ build_urban_priority_grid <- function(
     message("[lst] Using local LST raster.")
     list(raster = local_lst, item_id = "local", datetime = "local")
   } else {
-    .fetch_lst_stac(boundary, lst_datetime, city_cache_dir, use_cache = use_cache)
+    .fetch_lst_stac(boundary, lst_datetime, city_cache_dir, use_cache = use_cache,
+                    max_pages = satellite_max_pages, min_coverage = satellite_min_coverage)
   }
   hex_lst <- .summarise_lst_hex(hex_grid, lst_data$raster)
 
@@ -586,22 +601,40 @@ build_urban_priority_grid <- function(
     scenes = list(
       ndvi_id = ndvi_data$item_id,
       ndvi_datetime = ndvi_data$datetime,
+      ndvi_coverage = ndvi_data$coverage %||% NA_real_,
+      ndvi_pages_read = ndvi_data$pages_read %||% NA_integer_,
+      ndvi_composite_method = ndvi_data$algorithm %||% "local raster",
+      ndvi_source_index = ndvi_data$source_index_path %||% NA_character_,
+      ndvi_scene_added_pixels = ndvi_data$added_pixels %||% NA_integer_,
+      ndvi_scene_cloud_cover = ndvi_data$cloud_cover %||% NA_real_,
       lst_id = lst_data$item_id,
-      lst_datetime = lst_data$datetime
+      lst_datetime = lst_data$datetime,
+      lst_coverage = lst_data$coverage %||% NA_real_,
+      lst_pages_read = lst_data$pages_read %||% NA_integer_,
+      lst_composite_method = lst_data$algorithm %||% "local raster",
+      lst_source_index = lst_data$source_index_path %||% NA_character_,
+      lst_scene_added_pixels = lst_data$added_pixels %||% NA_integer_,
+      lst_scene_cloud_cover = lst_data$cloud_cover %||% NA_real_,
+      population_source = population_source,
+      chm_source = if (is.null(local_chm)) "Meta CHMv2" else "local CHM",
+      ndvi_source = if (is.null(local_ndvi)) "Sentinel-2 L2A" else "local NDVI",
+      lst_source = if (is.null(local_lst)) "Landsat Collection 2 LST" else "local LST"
     )
   )
 }
 
-#' Assess equity and inequality index with bootstrap uncertainty
+#' Assess descriptive equity and inequality indices
 #'
 #' @param priority_data A priority grid dataset returned from build_urban_priority_grid.
-#' @param n_bootstrap Number of bootstrap iterations for uncertainty estimation (default: 250).
+#' @param n_bootstrap Number of independent-hex resamples (default: 250).
+#'   The resulting intervals do not account for spatial autocorrelation and
+#'   must not be used as spatial confidence intervals.
 #' @export
 assess_urban_priority_equity <- function(priority_data, n_bootstrap = 250) {
   hex <- .add_decision_classes(priority_data$hex) |> sf::st_drop_geometry()
 
-  priority_gini <- .gini_bootstrap(hex$priority_score, weights = pmax(hex$population, 1), n = n_bootstrap)
-  heatload_gini <- .gini_bootstrap(hex$heat_exposure_score, weights = pmax(hex$population, 1), n = n_bootstrap)
+  priority_gini <- .gini_bootstrap(hex$priority_score, weights = pmax(hex$population, 0), n = n_bootstrap)
+  heatload_gini <- .gini_bootstrap(hex$heat_exposure_score, weights = pmax(hex$population, 0), n = n_bootstrap)
 
   total_pop <- sum(hex$population, na.rm = TRUE)
   total_area <- nrow(hex)
@@ -612,11 +645,11 @@ assess_urban_priority_equity <- function(priority_data, n_bootstrap = 250) {
   data.frame(
     metric = c(
       "Population-weighted priority Gini",
-      "Priority Gini 95% CI lower",
-      "Priority Gini 95% CI upper",
+      "Priority Gini iid bootstrap 95% interval lower (not spatial)",
+      "Priority Gini iid bootstrap 95% interval upper (not spatial)",
       "Population-weighted heat-load Gini",
-      "Heat-load Gini 95% CI lower",
-      "Heat-load Gini 95% CI upper",
+      "Heat-load Gini iid bootstrap 95% interval lower (not spatial)",
+      "Heat-load Gini iid bootstrap 95% interval upper (not spatial)",
       "Population in top 5% priority hexes",
       "Population share in top 5% priority hexes"
     ),
@@ -628,7 +661,7 @@ assess_urban_priority_equity <- function(priority_data, n_bootstrap = 250) {
       heatload_gini[["lo"]],
       heatload_gini[["hi"]],
       sum(hex$population[top_priority], na.rm = TRUE),
-      sum(hex$population[top_priority], na.rm = TRUE) / total_pop
+      if (total_pop > 0) sum(hex$population[top_priority], na.rm = TRUE) / total_pop else NA_real_
     ),
     stringsAsFactors = FALSE
   )
@@ -688,8 +721,8 @@ plot_priority_interactive <- function(priority_data) {
     lapply(htmltools::HTML)
 
   leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron") |>
-    leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Basemap") |>
+    .greenr_add_tiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
     leaflet::addPolygons(
       data = hex_wgs,
       group = "Tree action class",
@@ -721,7 +754,7 @@ plot_priority_interactive <- function(priority_data) {
       label = labels
     ) |>
     leaflet::addLayersControl(
-      baseGroups = c("Positron", "Imagery"),
+      baseGroups = c("Basemap", "Imagery"),
       overlayGroups = c("Tree action class", "Population heat load", "Heat x plantability"),
       options = leaflet::layersControlOptions(
         collapsed = FALSE,
@@ -797,9 +830,8 @@ plot_priority_3d_explorer <- function(priority_data, output_html, render_type = 
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 <style>
-body{margin:0;padding:0;font-family:"Inter",sans-serif;overflow:hidden}
+body{margin:0;padding:0;font-family:system-ui,sans-serif;overflow:hidden}
 #map{position:absolute;top:0;bottom:0;width:100%%}
 .panel{position:absolute;top:16px;left:16px;width:310px;backdrop-filter:blur(14px);border-radius:12px;padding:18px;z-index:2;transition:all .3s}
 .dk{background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 28px rgba(0,0,0,.5);color:#f1f5f9}
@@ -832,12 +864,10 @@ h1{margin:0 0 6px;font-size:18px;font-weight:800;letter-spacing:-.4px}
 <script>
 var hexGJ=', model_label)
 
-  part2 <- ';
-var dkT=["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"];
-var ltT=["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"];
+  part2 <- paste0(';
 var isDark=true;
-function mkS(t){return{"version":8,"sources":{"rt":{"type":"raster","tiles":t,"tileSize":256}},"layers":[{"id":"base","type":"raster","source":"rt"}]}}
-var map=new maplibregl.Map({container:"map",style:mkS(dkT),center:[';
+function mkS(t){return{"version":8,"sources":{"rt":{"type":"raster","tiles":t,"tileSize":256,"maxzoom":19,"attribution":"&copy; <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}},"layers":[{"id":"base","type":"raster","source":"rt"}]}}
+var map=new maplibregl.Map({container:"map",style:', .greenr_style_json(TRUE), ',center:[');
 
   part3 <- paste0('],zoom:14.2,pitch:55,bearing:-15,antialias:true});
 map.addControl(new maplibregl.NavigationControl());
@@ -867,7 +897,7 @@ function toggleTheme(){
 isDark=!isDark;
 document.body.style.background=isDark?"#0f172a":"#f8fafc";
 document.getElementById("pnl").className="panel "+(isDark?"dk":"lt");
-map.setStyle(mkS(isDark?dkT:ltT));
+map.setStyle(isDark ? ', .greenr_style_json(TRUE), ' : ', .greenr_style_json(FALSE), ');
 map.once("style.load",addLayers);
 }
 </script></body></html>');
@@ -955,7 +985,7 @@ plot_priority_3d_isometric <- function(
           yref = "paper",
           text = paste0(
             "Method: 100 m hex extrusion from Landsat LST. ",
-            "Scene: ", priority_data$scenes$lst_id, ". ",
+            "Acquisitions: ", .uh_scene_date(priority_data$scenes$lst_datetime), ". ",
             "Use as surface heat signal, not air temperature."
           ),
           showarrow = FALSE,
@@ -974,6 +1004,63 @@ plot_priority_3d_isometric <- function(
 .uh_pc_stac <- "https://planetarycomputer.microsoft.com/api/stac/v1"
 .uh_meta_chm_base <- "https://dataforgood-fb-data.s3.amazonaws.com/forests/v2/global/dinov3_global_chm_v2_ml3"
 .uh_gba_uri <- "s3://us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1"
+
+# Fail closed when an indicator has no observations. A missing satellite pixel is
+# not evidence of cool land, sparse canopy, or planting opportunity.
+.uh_require_complete <- function(x, label) {
+  n_missing <- sum(!is.finite(x))
+  if (n_missing) {
+    stop(sprintf("[%s] %d analysis units lack valid observations. Supply a covering local raster or select a different acquisition period; no values were imputed.",
+                 label, n_missing), call. = FALSE)
+  }
+  invisible(x)
+}
+
+.uh_cached_scene <- function(path) {
+  meta_path <- paste0(path, ".rds")
+  if (file.exists(meta_path)) return(readRDS(meta_path))
+  # Older cache entries lack provenance. Never manufacture an acquisition date.
+  list(item_id = basename(path), datetime = NA_character_)
+}
+
+.uh_scene_in_range <- function(path, datetime) {
+  meta <- .uh_cached_scene(path)
+  acquisition <- as.Date(substr(meta$datetime %||% NA_character_, 1, 10))
+  bounds <- strsplit(datetime, "/", fixed = TRUE)[[1]]
+  if (length(bounds) != 2L || is.na(acquisition)) return(FALSE)
+  start <- as.Date(substr(bounds[1], 1, 10))
+  end <- as.Date(substr(bounds[2], 1, 10))
+  !is.na(start) && !is.na(end) && acquisition >= start && acquisition <= end
+}
+
+.uh_save_scene <- function(path, raster, item) {
+  terra::writeRaster(raster, path, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
+  saveRDS(list(item_id = item$id, datetime = item$properties[["datetime"]]), paste0(path, ".rds"))
+}
+
+.uh_s2_reflectance <- function(dn, item, band, already_scaled = FALSE) {
+  # terra applies GeoTIFF scale/offset on read. STAC metadata describes the
+  # same transform and must not be applied a second time.
+  if (already_scaled) return(dn)
+  asset <- item$assets[[band]]
+  rb <- asset[["raster:bands"]][[1]]
+  scale <- rb$scale
+  offset <- rb$offset
+  if (is.null(scale) || is.null(offset)) {
+    baseline <- suppressWarnings(as.numeric(item$properties[["s2:processing_baseline"]]))
+    if (!is.finite(baseline)) stop("Sentinel-2 reflectance scale/offset and processing baseline are absent; cannot compute NDVI safely.", call. = FALSE)
+    scale <- 1 / 10000
+    offset <- if (baseline >= 4) -0.1 else 0
+  }
+  # Zero is Sentinel-2 nodata before the baseline offset is applied.
+  out <- terra::ifel(dn == 0, NA, dn * as.numeric(scale) + as.numeric(offset))
+  out
+}
+
+.uh_lst_celsius <- function(values, already_scaled = FALSE) {
+  if (already_scaled) return(values - 273.15)
+  terra::ifel(values == 0, NA, values * 0.00341802 + 149.0 - 273.15)
+}
 
 .uh_quadrant_palette <- c(
   "Lower need / Constrained" = "#799270",
@@ -1314,7 +1401,7 @@ plot_priority_3d_isometric <- function(
   out
 }
 
-.fetch_population_ghsl <- function(boundary, cache_dir, city_cache_dir = cache_dir, fallback_to_proxy = FALSE, use_cache = FALSE) {
+.fetch_population_worldpop <- function(boundary, cache_dir, city_cache_dir = cache_dir, fallback_to_proxy = FALSE, use_cache = FALSE) {
   target_crs <- .utm_crs(boundary)
 
   # Temporarily increase download timeout to 600s to support large spatial downloads
@@ -1327,39 +1414,20 @@ plot_priority_3d_isometric <- function(
   safe_bbox <- gsub("[^A-Za-z0-9_\\-]", "_", paste(format(round(unname(bb), 5), nsmall = 5), collapse = "_"))
   cache_file <- file.path(city_cache_dir, "population", paste0("pop_", safe_bbox, ".tif"))
   if (use_cache && file.exists(cache_file)) {
-    message(sprintf("[population] Using cached GHSL Population: %s", cache_file))
+    message(sprintf("[population] Using cached population raster: %s", cache_file))
     r <- terra::rast(cache_file)
+    source_path <- paste0(cache_file, ".source")
+    attr(r, "greenr_source") <- if (file.exists(source_path)) readLines(source_path, warn = FALSE)[1] else "cached population (source unrecorded)"
     return(r)
   }
 
-  # 3. Dynamic online COG query fallback from EU JRC / WorldPop COG
-  message("[population] Fetching real GHSL population raster online from JRC public COG...")
+  # 3. WorldPop is the supported online source. The former GHSL endpoint is
+  # retired; silently relabelling WorldPop as GHSL corrupted provenance.
+  message("[population] Fetching WorldPop 2020 population raster...")
   dir.create(file.path(city_cache_dir, "population"), recursive = TRUE, showWarnings = FALSE)
-
-  cog_url <- "/vsicurl/https://shared.jrc.ec.europa.eu/public/GHSL/GHS_POP_GPW4_GLOBE_R2019A_54009_250/V1-0/GHS_POP_GPW4_GLOBE_R2019A_54009_250_V1_0.tif"
-
-  # Fast online check using httr HEAD request with a 2-second timeout to bypass GDAL vsicurl hangs
-  jrc_accessible <- FALSE
-  tryCatch({
-    resp <- httr::HEAD(
-      "https://shared.jrc.ec.europa.eu/public/GHSL/GHS_POP_GPW4_GLOBE_R2019A_54009_250/V1-0/GHS_POP_GPW4_GLOBE_R2019A_54009_250_V1_0.tif",
-      httr::timeout(2),
-      httr::add_headers(`User-Agent` = .uh_user_agent)
-    )
-    if (!httr::http_error(resp)) {
-      jrc_accessible <- TRUE
-    }
-  }, error = function(e) NULL)
-
   r_pop <- NULL
-  if (jrc_accessible) {
-    r_pop <- tryCatch({
-      terra::rast(cog_url)
-    }, error = function(e) NULL)
-  }
-
   if (is.null(r_pop)) {
-    message("[population] Primary JRC GHSL server offline or blocked. Upgrading to WorldPop 100m smart country-level fallback...")
+    message("[population] Trying WorldPop 100 m country file...")
     cc2 <- if ("country_code" %in% names(boundary)) as.character(boundary$country_code[1]) else ""
     iso3 <- if (nchar(cc2) == 2) .iso2_to_iso3(cc2) else NULL
 
@@ -1458,28 +1526,33 @@ plot_priority_3d_isometric <- function(
     r_utm <- terra::project(r_mask, target_crs)
     names(r_utm) <- "population"
     terra::writeRaster(r_utm, cache_file, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
+    writeLines("WorldPop 2020", paste0(cache_file, ".source"))
+    attr(r_utm, "greenr_source") <- "WorldPop 2020"
     return(r_utm)
   }
 
   # Ultimate fallback
   if (!fallback_to_proxy) {
-    stop("[population] Critical Error: Unable to fetch real GHSL/WorldPop population data either locally or online. To continue code execution with a synthesized local grid-density population baseline for demonstration purposes only, set fallback_to_proxy = TRUE.", call. = FALSE)
+    stop("[population] Unable to fetch WorldPop population data. Supply local_population or explicitly set fallback_to_proxy = TRUE for a synthetic demonstration only.", call. = FALSE)
   }
 
   warning("[population] STAC offline and local TIFF missing. Generating local synthesized population proxy from grid density. Note: This synthesized baseline is for local code demonstration ONLY and is strictly unsuitable for peer-reviewed microclimate/urban vulnerability claims.", call. = FALSE)
   r <- terra::rast(terra::ext(sf::st_bbox(sf::st_transform(boundary, target_crs))), res = 100, crs = target_crs)
   terra::values(r) <- rnorm(terra::ncell(r), mean = 15, sd = 4)
   names(r) <- "population"
+  attr(r, "greenr_source") <- "synthetic demonstration proxy"
   r
 }
 
 .summarise_population_hex <- function(hex_grid, population_raster) {
   hex_pop_crs <- sf::st_transform(hex_grid, terra::crs(population_raster))
   pop_sum <- exactextractr::exact_extract(population_raster, hex_pop_crs, "sum")
+  pop_count <- exactextractr::exact_extract(population_raster, hex_pop_crs, "count")
 
   out <- hex_grid
   out$population <- as.numeric(pop_sum)
-  out$population[is.na(out$population)] <- 0
+  out$population[which(!is.finite(pop_count) | as.numeric(pop_count) <= 0)] <- NA_real_
+  .uh_require_complete(out$population, "population")
   out
 }
 
@@ -1560,6 +1633,7 @@ plot_priority_3d_isometric <- function(
   )
 
   chunks <- list()
+  failed_tiles <- character(0)
   gba_downloads_dir <- file.path(cache_dir, "downloads", "gba")
   dir.create(gba_downloads_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -1584,57 +1658,36 @@ plot_priority_3d_isometric <- function(
         NULL
       })
     } else {
-      message(sprintf("[gba] Downloading GBA partition tile to cache: %s", tile))
-      url <- paste0("https://us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1/", tile)
-      download_ok <- tryCatch({
-        utils::download.file(
-          url = url,
-          destfile = local_tile,
-          method = "auto",
-          quiet = TRUE,
-          mode = "wb"
-        )
-        TRUE
-      }, error = function(e) FALSE)
-
-      if (download_ok && file.exists(local_tile) && file.size(local_tile) > 1000) {
-        chunk <- tryCatch({
-          ds <- arrow::open_dataset(local_tile, format = "parquet")
-          ds |>
-            dplyr::filter(
-              bbox$xmax >= !!bbox_vec[["left"]],
-              bbox$xmin <= !!bbox_vec[["right"]],
-              bbox$ymax >= !!bbox_vec[["bottom"]],
-              bbox$ymin <= !!bbox_vec[["top"]]
-            ) |>
-            dplyr::select(source, id, height, geometry) |>
-            dplyr::collect()
-        }, error = function(e) NULL)
-      } else {
-        unlink(local_tile, force = TRUE)
-        message(sprintf("[gba] Download failed. Querying remote S3 GBA partition tile directly: %s", tile))
-        chunk <- tryCatch({
-          ds <- if (!is.null(bucket)) {
-            arrow::open_dataset(tile, format = "parquet", filesystem = bucket)
-          } else {
-            arrow::open_dataset(paste0("s3://us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1/", tile), format = "parquet")
-          }
-          ds |>
-            dplyr::filter(
-              bbox$xmax >= !!bbox_vec[["left"]],
-              bbox$xmin <= !!bbox_vec[["right"]],
-              bbox$ymax >= !!bbox_vec[["bottom"]],
-              bbox$ymin <= !!bbox_vec[["top"]]
-            ) |>
-            dplyr::select(source, id, height, geometry) |>
-            dplyr::collect()
-        }, error = function(e) {
-          message(sprintf("[gba] Warning: Failed to query remote tile %s: %s", tile, e$message))
-          NULL
-        })
-      }
+      # Arrow can use parquet row-group statistics to avoid a multi-GB HTTP
+      # download. The former HTTPS host is not a supported access path.
+      message(sprintf("[gba] Querying remote S3 GeoParquet tile: %s", tile))
+      chunk <- tryCatch({
+        ds <- if (!is.null(bucket)) {
+          arrow::open_dataset(tile, format = "parquet", filesystem = bucket)
+        } else {
+          arrow::open_dataset(paste0(.uh_gba_uri, "/", tile), format = "parquet")
+        }
+        ds |>
+          dplyr::filter(
+            bbox$xmax >= !!bbox_vec[["left"]],
+            bbox$xmin <= !!bbox_vec[["right"]],
+            bbox$ymax >= !!bbox_vec[["bottom"]],
+            bbox$ymin <= !!bbox_vec[["top"]]
+          ) |>
+          dplyr::select(source, id, height, geometry) |>
+          dplyr::collect()
+      }, error = function(e) {
+        message(sprintf("[gba] Failed to query remote tile %s: %s", tile, e$message))
+        NULL
+      })
     }
+    if (is.null(chunk)) failed_tiles <- c(failed_tiles, tile)
     if (!is.null(chunk) && nrow(chunk) > 0) chunks[[tile]] <- chunk
+  }
+
+  if (length(failed_tiles)) {
+    message(sprintf("[gba] %d required tile queries failed; discarding partial GBA result and trying OSM.", length(failed_tiles)))
+    chunks <- list()
   }
 
   gba_sf <- NULL
@@ -1742,7 +1795,10 @@ plot_priority_3d_isometric <- function(
     }
   }
 
-  message("[buildings] Offline / Overpass timeout fallback: using empty building layer.")
+  if (is.null(resp) || httr::http_error(resp)) {
+    stop("[buildings] GBA and OSM Overpass both failed. Supply local_buildings; a failed query cannot be treated as zero buildings.", call. = FALSE)
+  }
+  message("[buildings] Successful OSM query returned no building footprints in the area.")
   sf::st_sf(id = integer(0), geometry = sf::st_sfc(), crs = 4326)
 }
 
@@ -1793,7 +1849,7 @@ plot_priority_3d_isometric <- function(
       }
     })
   }, error = function(e) {
-    message("[buildings] Warning: error in building footprint summary, falling back to 0: ", e$message)
+    stop("[buildings] Building footprint summary failed: ", e$message, call. = FALSE)
   })
 
   out$gba_building_frac <- pmin(1, pmax(0, gba_building_frac))
@@ -1844,18 +1900,23 @@ plot_priority_3d_isometric <- function(
     boundary_wgs <- sf::st_transform(boundary, 4326)
     match_tile <- sf::st_filter(index_sf, sf::st_as_sfc(sf::st_bbox(boundary_wgs)))
     if (nrow(match_tile) > 0) {
-      tile_id <- match_tile$tile[[1]]
-      message(sprintf("[chm] Intersecting Meta CHM tile found: %s. Fetching and cropping...", tile_id))
-      uri <- sprintf("/vsicurl/%s/chm/%s.tif", .uh_meta_chm_base, tile_id)
-
-      chm <- tryCatch({
-        terra::rast(uri)
-      }, error = function(e) NULL)
-
+      tile_ids <- unique(as.character(match_tile$tile))
+      message(sprintf("[chm] Reading %d intersecting Meta CHMv2 tiles.", length(tile_ids)))
+      pieces <- lapply(tile_ids, function(tile_id) {
+        chm <- tryCatch(terra::rast(sprintf("/vsicurl/%s/chm/%s.tif", .uh_meta_chm_base, tile_id)), error = function(e) NULL)
+        if (is.null(chm)) return(NULL)
+        area <- sf::st_transform(boundary, terra::crs(chm))
+        tryCatch(terra::crop(chm, terra::vect(area), snap = "out"), error = function(e) NULL)
+      })
+      if (any(vapply(pieces, is.null, logical(1)))) {
+        stop("[chm] One or more intersecting Meta CHMv2 tiles failed to read; refusing a partial mosaic.", call. = FALSE)
+      }
+      chm <- if (length(pieces) == 1L) pieces[[1]] else terra::merge(terra::sprc(pieces))
       if (!is.null(chm)) {
         boundary_chm_crs <- sf::st_transform(boundary, terra::crs(chm))
         chm_crop <- terra::crop(chm, terra::vect(boundary_chm_crs), snap = "out")
         chm_mask <- terra::mask(chm_crop, terra::vect(boundary_chm_crs))
+        chm_mask <- terra::classify(chm_mask, cbind(250.5, Inf, NA))
         names(chm_mask) <- "chm_m"
 
         # Aggregate to 10m to avoid high-res footprint lag
@@ -1866,25 +1927,14 @@ plot_priority_3d_isometric <- function(
           names(chm_mask) <- "chm_m"
         }
 
-        cache_file <- file.path(cache_dir, "meta_chm", paste0("chm_", tile_id, "_10_", safe_bbox, ".tif"))
+        cache_file <- file.path(cache_dir, "meta_chm", paste0("chm_", paste(tile_ids, collapse = "-"), "_10_", safe_bbox, ".tif"))
         terra::writeRaster(chm_mask, cache_file, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
         return(chm_mask)
       }
     }
   }
 
-  if (length(cached_files) > 0) {
-    message("[chm] Offline / S3 error: using the first available cached CHM tile as spatial proxy...")
-    return(terra::rast(cached_files[1]))
-  }
-
-  # Ultimate fallback
-  message("[chm] Meta CHM index unreachable: creating fallback terrain canopy raster...")
-  target_crs <- .utm_crs(boundary)
-  r <- terra::rast(terra::ext(sf::st_bbox(sf::st_transform(boundary, target_crs))), res = 10, crs = target_crs)
-  terra::values(r) <- runif(terra::ncell(r), 0, 12)
-  names(r) <- "chm_m"
-  r
+  stop("[chm] No covering Meta CHMv2 data could be read. Supply local_chm or retry the source; synthetic/cross-area canopy is never substituted.", call. = FALSE)
 }
 
 .summarise_chm_hex <- function(hex_grid, chm_raster) {
@@ -1894,102 +1944,14 @@ plot_priority_3d_isometric <- function(
 
   out <- hex_grid
   out$canopy_pct_chm <- pmin(100, pmax(0, as.numeric(canopy_frac) * 100))
-  out$canopy_pct_chm[is.na(out$canopy_pct_chm)] <- 0
+  .uh_require_complete(out$canopy_pct_chm, "chm")
   out
 }
 
-.fetch_ndvi_stac <- function(boundary, datetime, cache_dir, use_cache = FALSE) {
-  # 1. Search in cache_dir for a cached Sentinel-2 NDVI raster
-  bb <- sf::st_bbox(sf::st_transform(boundary, 4326))
-  safe_bbox <- gsub("[^A-Za-z0-9_\\-]", "_", paste(format(round(unname(bb), 5), nsmall = 5), collapse = "_"))
-
-  cached_files <- list.files(file.path(cache_dir, "ndvi"), pattern = "\\.tif$", full.names = TRUE)
-  match_idx <- grepl(safe_bbox, basename(cached_files), fixed = TRUE)
-  if (use_cache && any(match_idx)) {
-    cached_file <- cached_files[match_idx][1]
-    message(sprintf("[ndvi] Using cached Sentinel-2 NDVI: %s", cached_file))
-
-    cached_item_id <- sub("^ndvi_", "", basename(cached_file))
-    cached_item_id <- sub(paste0("_", safe_bbox, "\\.tif$"), "", cached_item_id)
-
-    return(list(
-      raster = terra::rast(cached_file),
-      item_id = cached_item_id,
-      datetime = "2025-08-11"
-    ))
-  }
-
-  # 2. Dynamic online download using Planetary Computer STAC
-  message("[ndvi] Querying Sentinel-2 Planetary Computer STAC archive...")
-  dir.create(file.path(cache_dir, "ndvi"), recursive = TRUE, showWarnings = FALSE)
-
-  bbox_vec <- c(bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]])
-
-  item <- tryCatch({
-    items <- rstac::stac(.uh_pc_stac, force_version = "1.0.0") |>
-      rstac::stac_search(
-        collections = "sentinel-2-l2a",
-        bbox = bbox_vec,
-        datetime = datetime,
-        limit = 20
-      ) |>
-      rstac::post_request() |>
-      rstac::items_sign_planetary_computer()
-
-    if (length(items$features) > 0) {
-      clouds <- vapply(items$features, function(f) f$properties[["eo:cloud_cover"]], numeric(1))
-      items$features[[which.min(clouds)]]
-    } else NULL
-  }, error = function(e) NULL)
-
-  if (!is.null(item)) {
-    message(sprintf("[ndvi] Fetching bands for scene: %s (Cloud Cover: %.2f%%)", item$id, item$properties[["eo:cloud_cover"]]))
-
-    red <- tryCatch(terra::rast(sprintf("/vsicurl/%s", item$assets$B04$href)), error = function(e) NULL)
-    nir <- tryCatch(terra::rast(sprintf("/vsicurl/%s", item$assets$B08$href)), error = function(e) NULL)
-    scl <- tryCatch(terra::rast(sprintf("/vsicurl/%s", item$assets$SCL$href)), error = function(e) NULL)
-
-    if (!is.null(red) && !is.null(nir) && !is.null(scl)) {
-      boundary_proj <- sf::st_transform(boundary, terra::crs(red))
-      red_crop <- terra::mask(terra::crop(red, terra::vect(boundary_proj), snap = "out"), terra::vect(boundary_proj))
-      nir_crop <- terra::mask(terra::crop(nir, terra::vect(boundary_proj), snap = "out"), terra::vect(boundary_proj))
-
-      scl_proj <- sf::st_transform(boundary, terra::crs(scl))
-      scl_crop <- terra::mask(terra::crop(scl, terra::vect(scl_proj), snap = "out"), terra::vect(scl_proj))
-      scl_match <- terra::resample(scl_crop, red_crop, method = "near")
-
-      ndvi <- (nir_crop - red_crop) / (nir_crop + red_crop)
-      valid_mask <- scl_match == 4 | scl_match == 5 # vegetation & bare land
-      ndvi <- terra::mask(ndvi, valid_mask, maskvalues = 0, updatevalue = NA)
-      names(ndvi) <- "ndvi"
-
-      cache_file <- file.path(cache_dir, "ndvi", paste0("ndvi_", item$id, "_", safe_bbox, ".tif"))
-      terra::writeRaster(ndvi, cache_file, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
-
-      return(list(
-        raster = ndvi,
-        item_id = item$id,
-        datetime = item$properties[["datetime"]]
-      ))
-    }
-  }
-
-  if (length(cached_files) > 0) {
-    message("[ndvi] STAC offline, using available cached NDVI raster...")
-    return(list(
-      raster = terra::rast(cached_files[1]),
-      item_id = "cached_fallback",
-      datetime = "2025-08-11"
-    ))
-  }
-
-  # Ultimate fallback
-  message("[ndvi] Planetary Computer unreachable, creating mock greenness raster...")
-  target_crs <- .utm_crs(boundary)
-  r <- terra::rast(terra::ext(sf::st_bbox(sf::st_transform(boundary, target_crs))), res = 10, crs = target_crs)
-  terra::values(r) <- runif(terra::ncell(r), 0.15, 0.65)
-  names(r) <- "ndvi"
-  list(raster = r, item_id = "simulated", datetime = "2025-08-11")
+.fetch_ndvi_stac <- function(boundary, datetime, cache_dir, use_cache = FALSE,
+                             max_pages = 12L, min_coverage = 0.995) {
+  .uh_satellite_mosaic(boundary, datetime, cache_dir, "ndvi", use_cache = use_cache,
+                       max_pages = max_pages, min_coverage = min_coverage)
 }
 
 .summarise_ndvi_hex <- function(hex_grid, ndvi_raster) {
@@ -1998,106 +1960,30 @@ plot_priority_3d_isometric <- function(
 
   out <- hex_grid
   out$ndvi_mean <- as.numeric(ndvi_mean)
-  out$ndvi_mean[is.na(out$ndvi_mean)] <- 0.25
+  .uh_require_complete(out$ndvi_mean, "ndvi")
   out
 }
 
-.fetch_lst_stac <- function(boundary, datetime, cache_dir, use_cache = FALSE) {
-  # 1. Search in cache_dir for a cached Landsat LST raster
-  bb <- sf::st_bbox(sf::st_transform(boundary, 4326))
-  safe_bbox <- gsub("[^A-Za-z0-9_\\-]", "_", paste(format(round(unname(bb), 5), nsmall = 5), collapse = "_"))
-
-  cached_files <- list.files(file.path(cache_dir, "lst"), pattern = "\\.tif$", full.names = TRUE)
-  match_idx <- grepl(safe_bbox, basename(cached_files), fixed = TRUE)
-  if (use_cache && any(match_idx)) {
-    cached_file <- cached_files[match_idx][1]
-    message(sprintf("[lst] Using cached Landsat LST: %s", cached_file))
-
-    cached_item_id <- sub("^lst_", "", basename(cached_file))
-    cached_item_id <- sub(paste0("_", safe_bbox, "\\.tif$"), "", cached_item_id)
-
-    return(list(
-      raster = terra::rast(cached_file),
-      item_id = cached_item_id,
-      datetime = "2025-08-08"
-    ))
-  }
-
-  # 2. Dynamic online download using Landsat Planetary Computer STAC
-  message("[lst] Querying Landsat Planetary Computer STAC archive...")
-  dir.create(file.path(cache_dir, "lst"), recursive = TRUE, showWarnings = FALSE)
-
-  bbox_vec <- c(bb[["xmin"]], bb[["ymin"]], bb[["xmax"]], bb[["ymax"]])
-
-  item <- tryCatch({
-    items <- rstac::stac(.uh_pc_stac, force_version = "1.0.0") |>
-      rstac::stac_search(
-        collections = "landsat-c2-l2",
-        bbox = bbox_vec,
-        datetime = datetime,
-        limit = 20
-      ) |>
-      rstac::post_request() |>
-      rstac::items_sign_planetary_computer()
-
-    if (length(items$features) > 0) {
-      clouds <- vapply(items$features, function(f) f$properties[["eo:cloud_cover"]], numeric(1))
-      items$features[[which.min(clouds)]]
-    } else NULL
-  }, error = function(e) NULL)
-
-  if (!is.null(item)) {
-    message(sprintf("[lst] Fetching bands for scene: %s (Cloud Cover: %.2f%%)", item$id, item$properties[["eo:cloud_cover"]]))
-
-    st_raw <- tryCatch(terra::rast(sprintf("/vsicurl/%s", item$assets$lwir11$href)), error = function(e) NULL)
-    qa <- tryCatch(terra::rast(sprintf("/vsicurl/%s", item$assets$qa_pixel$href)), error = function(e) NULL)
-
-    if (!is.null(st_raw) && !is.null(qa)) {
-      boundary_proj <- sf::st_transform(boundary, terra::crs(st_raw))
-      st_crop <- terra::mask(terra::crop(st_raw, terra::vect(boundary_proj), snap = "out"), terra::vect(boundary_proj))
-
-      qa_proj <- sf::st_transform(boundary, terra::crs(qa))
-      qa_crop <- terra::mask(terra::crop(qa, terra::vect(qa_proj), snap = "out"), terra::vect(qa_proj))
-      qa_match <- terra::resample(qa_crop, st_crop, method = "near")
-
-      # Celsius: DN * 0.00341802 + 149.0 - 273.15
-      lst_c <- st_crop * 0.00341802 + 149.0 - 273.15
-
-      clear_mask <- .uh_landsat_clear_mask(qa_match)
-      lst_c <- terra::mask(lst_c, clear_mask, maskvalues = 0, updatevalue = NA)
-      names(lst_c) <- "lst_c"
-
-      cache_file <- file.path(cache_dir, "lst", paste0("lst_", item$id, "_", safe_bbox, ".tif"))
-      terra::writeRaster(lst_c, cache_file, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
-
-      return(list(
-        raster = lst_c,
-        item_id = item$id,
-        datetime = item$properties[["datetime"]]
-      ))
-    }
-  }
-
-  if (length(cached_files) > 0) {
-    message("[lst] STAC offline, using available cached LST raster...")
-    return(list(
-      raster = terra::rast(cached_files[1]),
-      item_id = "cached_fallback",
-      datetime = "2025-08-08"
-    ))
-  }
-
-  # Ultimate fallback
-  message("[lst] Planetary Computer unreachable, creating mock surface temperature raster...")
-  target_crs <- .utm_crs(boundary)
-  r <- terra::rast(terra::ext(sf::st_bbox(sf::st_transform(boundary, target_crs))), res = 30, crs = target_crs)
-  terra::values(r) <- runif(terra::ncell(r), 23, 38)
-  names(r) <- "lst_c"
-  list(raster = r, item_id = "simulated", datetime = "2025-08-08")
+.fetch_lst_stac <- function(boundary, datetime, cache_dir, use_cache = FALSE,
+                            max_pages = 12L, min_coverage = 0.995) {
+  .uh_satellite_mosaic(boundary, datetime, cache_dir, "lst", use_cache = use_cache,
+                       max_pages = max_pages, min_coverage = min_coverage)
 }
 
 .uh_landsat_clear_mask <- function(qa_raster) {
-  terra::"%in%"(qa_raster, c(21824, 21888, 22208, 44032, 44096, 44224, 44288))
+  # USGS Collection 2 QA_PIXEL bits 0-5: fill, dilated cloud, cirrus,
+  # cloud, cloud shadow and snow. Require clear bit 6 as an additional
+  # consistency check and reject high confidence in bits 8-15. Water (bit 7)
+  # is valid here; geometry decides whether it belongs in a priority area.
+  terra::app(qa_raster, fun = function(x) {
+    out <- rep(NA_real_, length(x))
+    ok <- !is.na(x)
+    q <- as.integer(x[ok])
+    high_conf <- Reduce(`|`, lapply(c(8L, 10L, 12L, 14L), function(b)
+      bitwAnd(bitwShiftR(q, b), 3L) == 3L))
+    out[ok] <- as.numeric(bitwAnd(q, 63L) == 0L & bitwAnd(q, 64L) != 0L & !high_conf)
+    out
+  })
 }
 
 .summarise_lst_hex <- function(hex_grid, lst_raster) {
@@ -2106,7 +1992,7 @@ plot_priority_3d_isometric <- function(
 
   out <- hex_grid
   out$lst_mean_c <- as.numeric(lst_mean)
-  out$lst_mean_c[is.na(out$lst_mean_c)] <- 26.5
+  .uh_require_complete(out$lst_mean_c, "lst")
   out
 }
 
@@ -2222,6 +2108,25 @@ plot_priority_3d_isometric <- function(
   )
 }
 
+.uh_scene_date <- function(x) {
+  if (is.null(x) || !length(x)) return("date unavailable")
+  valid <- x[!is.na(x) & nzchar(x)]
+  days <- sort(unique(substr(valid, 1, 10)))
+  if (!length(days)) return("date unavailable")
+  if (length(valid) == 1L) return(days)
+  if (length(days) == 1L) return(sprintf("%s; %d scenes", days, length(valid)))
+  sprintf("%s to %s; %d scenes", days[1], days[length(days)], length(valid))
+}
+
+.uh_data_caption <- function(priority_data) {
+  s <- priority_data$scenes
+  if (is.null(s)) return("Data sources unavailable")
+  sprintf("%s (%s); %s (%s); %s; %s; OSM",
+          s$lst_source %||% "LST", .uh_scene_date(s$lst_datetime),
+          s$ndvi_source %||% "NDVI", .uh_scene_date(s$ndvi_datetime),
+          s$chm_source %||% "CHM", s$population_source %||% "population")
+}
+
 .footer_text <- function(priority_data, score_col, method) {
   geom_df <- if (!is.null(priority_data$hex)) {
     sf::st_drop_geometry(priority_data$hex)
@@ -2234,18 +2139,15 @@ plot_priority_3d_isometric <- function(
   if (is.null(geom_df) || !score_col %in% names(geom_df)) {
     g <- list(gini = NA_real_, lo = NA_real_, hi = NA_real_)
   } else {
-    pop_vals <- if ("population" %in% names(geom_df)) pmax(geom_df$population, 1) else rep(1, nrow(geom_df))
+    pop_vals <- if ("population" %in% names(geom_df)) pmax(geom_df$population, 0) else rep(1, nrow(geom_df))
     g <- .gini_bootstrap(geom_df[[score_col]], weights = pop_vals)
   }
 
-  lst_date <- if (!is.null(priority_data$scenes$lst_datetime)) substr(priority_data$scenes$lst_datetime, 1, 10) else "2025-08-08"
-  ndvi_date <- if (!is.null(priority_data$scenes$ndvi_datetime)) substr(priority_data$scenes$ndvi_datetime, 1, 10) else "2025-08-11"
-
-  gini_str <- if (is.na(g[["gini"]])) "NA" else sprintf("%.3f [95%% CI: %.3f - %.3f]", g[["gini"]], g[["lo"]], g[["hi"]])
+  gini_str <- if (is.na(g[["gini"]])) "NA" else sprintf("%.3f", g[["gini"]])
 
   sprintf(
-    "Methodology: %s\nData: Landsat-9 LST (%s), Sentinel-2 NDVI (%s), Meta Canopy Height Model (CHM), GHSL Population Grid, OSM Landuse & Water\nPolicy Equity: Population-weighted Spatial Priority Gini = %s * generated by greenR",
-    method, lst_date, ndvi_date, gini_str
+    "Methodology: %s (heuristic within-area ranking)\nData: %s\nPopulation-weighted score Gini = %s (descriptive; spatial CI not estimated) * generated by greenR",
+    method, .uh_data_caption(priority_data), gini_str
   )
 }
 
@@ -2337,7 +2239,7 @@ plot_priority_3d_isometric <- function(
   list(vertices = vertices, faces = faces, hover = hover, range = value_rng)
 }
 
-#' Morphological Street Canyon priority scoring engine (Mathematically Rigorous MCDA)
+#' Morphological street-canyon priority screening (heuristic MCDA)
 #'
 #' @param priority_data A priority grid dataset returned from build_urban_priority_grid.
 #' @export
@@ -2396,28 +2298,27 @@ build_street_canyon_priority <- function(priority_data) {
   # Population sum
   pop_sum <- exactextractr::exact_extract(priority_data$population_raster, sf::st_transform(canyons, sf::st_crs(priority_data$population_raster)), "sum")
   canyons$population <- as.numeric(pop_sum)
-  canyons$population[is.na(canyons$population)] <- 0
+  .uh_require_complete(canyons$population, "canyon population")
 
   # LST mean
   lst_mean <- exactextractr::exact_extract(priority_data$lst_raster, sf::st_transform(canyons, sf::st_crs(priority_data$lst_raster)), "mean")
   canyons$lst_mean_c <- as.numeric(lst_mean)
-  mean_valid_lst <- mean(canyons$lst_mean_c, na.rm = TRUE)
-  canyons$lst_mean_c[is.na(canyons$lst_mean_c)] <- if (is.finite(mean_valid_lst)) mean_valid_lst else 25.0
+  .uh_require_complete(canyons$lst_mean_c, "canyon LST")
 
   # NDVI mean
   ndvi_mean <- exactextractr::exact_extract(priority_data$ndvi_raster, sf::st_transform(canyons, sf::st_crs(priority_data$ndvi_raster)), "mean")
   canyons$ndvi_mean <- as.numeric(ndvi_mean)
-  mean_valid_ndvi <- mean(canyons$ndvi_mean, na.rm = TRUE)
-  canyons$ndvi_mean[is.na(canyons$ndvi_mean)] <- if (is.finite(mean_valid_ndvi)) mean_valid_ndvi else 0.2
+  .uh_require_complete(canyons$ndvi_mean, "canyon NDVI")
 
   # Canopy Height Model -> Canopy Coverage Percentage (>= 2m)
   chm_bool <- priority_data$chm_raster >= 2
   canopy_frac <- exactextractr::exact_extract(chm_bool, sf::st_transform(canyons, sf::st_crs(chm_bool)), "mean")
   canyons$canopy_pct_chm <- as.numeric(canopy_frac) * 100
-  canyons$canopy_pct_chm[is.na(canyons$canopy_pct_chm)] <- 0
+  .uh_require_complete(canyons$canopy_pct_chm, "canyon CHM")
 
-  # Rigorous Percentile-based MCDA framework (No assumptions, no arbitrary constants)
-  message("[canyons] Computing non-arbitrary percentile-rank priority model...")
+  # Heuristic within-city ranking. Widths and equal weights are assumptions;
+  # the canopy rank enters opportunity only, to avoid counting it twice.
+  message("[canyons] Computing heuristic percentile-rank priority model...")
   lst_rank <- dplyr::percent_rank(canyons$lst_mean_c)
   pop_rank <- dplyr::percent_rank(log1p(canyons$population))
   ndvi_rank <- dplyr::percent_rank(canyons$ndvi_mean)
@@ -2427,7 +2328,7 @@ build_street_canyon_priority <- function(priority_data) {
   canyons$heat_exposure_index <- 0.5 * lst_rank + 0.5 * pop_rank
 
   # Cooling Deficit: lack of green vegetation and lack of structural height shading
-  canyons$cooling_deficit_index <- 0.5 * (1 - ndvi_rank) + 0.5 * (1 - chm_rank)
+  canyons$cooling_deficit_index <- 1 - ndvi_rank
 
   # Tree Action Need: geometric mean of physical heat exposure and local green deficits
   canyons$tree_need_score <- 100 * sqrt(canyons$heat_exposure_index * canyons$cooling_deficit_index)
@@ -2482,16 +2383,15 @@ build_street_canyon_priority <- function(priority_data) {
   )
 }
 
-#' Physical pedestrian shade and microclimate canyon screening
+#' Heuristic street-orientation and canopy-gap screening
 #'
 #' @param canyon_data A street canyon dataset returned from build_street_canyon_priority.
 #' @param latitude Study region latitude in decimal degrees (e.g. 28.6 for New Delhi, 46.2 for Geneva).
-#'   Used to weight solar orientation: at high latitudes E-W canyons face maximum solar load;
-#'   at the equator this distinction largely disappears. Automatically derived from the city
-#'   boundary centroid when called via uh_decision().
+#'   Used only in a latitude-weighted orientation proxy. This is not a solar
+#'   position, radiation, SVF, air-temperature, or microclimate simulation.
 #' @export
-emulate_canyon_microclimate <- function(canyon_data, latitude = 46.2) {
-  message(sprintf("--- Running Canyon Solar & Shade Microclimate Screening (lat = %.1f deg) ---", latitude))
+screen_canyon_orientation <- function(canyon_data, latitude = 46.2) {
+  message(sprintf("--- Running heuristic canyon orientation screening (lat = %.1f deg) ---", latitude))
 
   canyons <- canyon_data$canyons
 
@@ -2542,6 +2442,7 @@ emulate_canyon_microclimate <- function(canyon_data, latitude = 46.2) {
                                    (1 - lat_weight) * 1
   # Clamp to [0, 1]
   canyons$solar_exposure_factor <- pmin(pmax(canyons$solar_exposure_factor, 0), 1)
+  canyons$orientation_exposure_proxy <- canyons$solar_exposure_factor
 
   # Pedestrian Shade Potential: solar exposure scaled by canopy deficit
   chm_rank <- dplyr::percent_rank(canyons$canopy_pct_chm)
@@ -2554,6 +2455,13 @@ emulate_canyon_microclimate <- function(canyon_data, latitude = 46.2) {
 
   canyon_data$canyons <- canyons
   canyon_data
+}
+
+#' @rdname screen_canyon_orientation
+#' @export
+emulate_canyon_microclimate <- function(canyon_data, latitude = 46.2) {
+  .Deprecated("screen_canyon_orientation")
+  screen_canyon_orientation(canyon_data, latitude = latitude)
 }
 
 #' Custom 45-degree rotated Diamond Bivariate Decision Map
@@ -2586,12 +2494,12 @@ plot_priority_diamond_bivariate <- function(priority_data, title = "Where Heat M
   hex_3857 <- sf::st_transform(hex, 3857)
   boundary_3857 <- sf::st_transform(priority_data$boundary, 3857)
 
-  sub_text <- if (!is.null(subtitle)) subtitle else "100 m hexes. CartoDB Light basemap reveals city physical context."
+  sub_text <- if (!is.null(subtitle)) subtitle else "Analysis units with local vector context; no web tiles required."
   cap_text <- if (!is.null(caption)) caption else .footer_text(priority_data, "priority_score", "Bivariate diamond cooling priorities")
 
   map <- ggplot2::ggplot() +
     # Premium Light web basemap underlay
-    ggspatial::annotation_map_tile(type = "cartolight", zoom = 14, alpha = 0.90) +
+    .greenr_map_context(priority_data) +
     # Semitransparent bivariate hexagon overlay
     ggplot2::geom_sf(data = hex_3857, ggplot2::aes(fill = .data$bivariate_class), color = ggplot2::alpha("white", 0.15), linewidth = 0.02, alpha = 0.75) +
     ggplot2::geom_sf(data = boundary_3857, fill = NA, color = "#475569", linewidth = 0.8) +
@@ -2601,7 +2509,7 @@ plot_priority_diamond_bivariate <- function(priority_data, title = "Where Heat M
     ggplot2::labs(
       title = title,
       subtitle = sub_text,
-      caption = cap_text
+      caption = paste(cap_text, if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else "", sep="\n")
     ) +
     .uh_decision_map_theme() +
     ggplot2::theme(legend.position = "none")
@@ -2625,6 +2533,7 @@ plot_priority_diamond_bivariate <- function(priority_data, title = "Where Heat M
 #' @export
 plot_canyon_diamond_bivariate <- function(canyon_data, title = "Street Canyon Bivariate Planting Priorities", subtitle = NULL, caption = NULL, line_width = NULL, palette = NULL) {
   canyons <- canyon_data$canyons
+  if (is.null(canyons) || !nrow(canyons)) stop("No canyon features available; no map was written.", call. = FALSE)
 
   # Setup palette
   pal <- if (!is.null(palette)) {
@@ -2671,7 +2580,7 @@ plot_canyon_diamond_bivariate <- function(canyon_data, title = "Street Canyon Bi
   cap_text <- if (!is.null(caption)) caption else .footer_text(canyon_data, "tree_need_score", "Bivariate street canyon shade analysis")
 
   map <- ggplot2::ggplot() +
-    ggspatial::annotation_map_tile(type = "cartolight", zoom = 14, alpha = 0.95) +
+    .greenr_map_context(canyon_data) +
     # Draw prioritized street canyon segments as thick colored lines
     ggplot2::geom_sf(data = canyons_3857, ggplot2::aes(color = .data$bivariate_class, linewidth = .data$final_line_width), alpha = 0.90) +
     ggplot2::geom_sf(data = boundary_3857, fill = NA, color = "#334155", linewidth = 0.9) +
@@ -2682,7 +2591,7 @@ plot_canyon_diamond_bivariate <- function(canyon_data, title = "Street Canyon Bi
     ggplot2::labs(
       title = title,
       subtitle = sub_text,
-      caption = cap_text
+      caption = paste(cap_text, if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else "", sep="\n")
     ) +
     .uh_decision_map_theme() +
     ggplot2::theme(legend.position = "none")
@@ -2706,6 +2615,7 @@ plot_canyon_diamond_bivariate <- function(canyon_data, title = "Street Canyon Bi
 #' @export
 plot_canyon_priority_map <- function(canyon_data, title = "Morphological Street Canyon Planting Priorities", subtitle = NULL, caption = NULL, line_width = NULL, palette = NULL) {
   canyons <- canyon_data$canyons
+  if (is.null(canyons) || !nrow(canyons)) stop("No canyon features available; no map was written.", call. = FALSE)
 
   # Transform vector layer to Web Mercator for correct tiles mapping
   canyons_3857 <- sf::st_transform(canyons, 3857)
@@ -2718,7 +2628,7 @@ plot_canyon_priority_map <- function(canyon_data, title = "Morphological Street 
   cap_text <- if (!is.null(caption)) caption else .footer_text(canyon_data, "priority_score", "Morphological street canyon priority screening")
 
   ggplot2::ggplot() +
-    ggspatial::annotation_map_tile(type = "cartolight", zoom = 14, alpha = 0.95) +
+    .greenr_map_context(canyon_data) +
     # Draw physical street networks with dynamic sizing and high contrast plasma scale
     ggplot2::geom_sf(data = canyons_3857, ggplot2::aes(color = .data$priority_score, linewidth = .data$final_line_width), alpha = 0.90) +
     ggplot2::geom_sf(data = boundary_3857, fill = NA, color = "#1e293b", linewidth = 0.95) +
@@ -2733,7 +2643,7 @@ plot_canyon_priority_map <- function(canyon_data, title = "Morphological Street 
     ggplot2::labs(
       title = title,
       subtitle = sub_text,
-      caption = cap_text
+      caption = paste(cap_text, if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else "", sep="\n")
     ) +
     .uh_decision_map_theme() +
     ggplot2::theme(
@@ -2815,15 +2725,16 @@ plot_canyon_priority_map <- function(canyon_data, title = "Morphological Street 
 #' @param priority_data A priority grid dataset returned from build_urban_priority_grid.
 #' @param w_heat Weight of Land Surface Temperature in Heat Exposure index (default: 0.50).
 #' @param w_pop Weight of Population in Heat Exposure index (default: 0.50).
-#' @param w_ndvi Weight of NDVI deficit in Cooling Deficit index (default: 0.50).
-#' @param w_canopy Weight of canopy deficit in Cooling Deficit index (default: 0.50).
+#' @param w_ndvi Weight of NDVI deficit in cooling deficit (default: 1).
+#' @param w_canopy Optional canopy-deficit weight (default: 0); positive values
+#'   count canopy in both need and the canopy-gap opportunity proxy.
 #' @export
 build_urban_block_priority <- function(
   priority_data,
   w_heat = 0.50,
   w_pop = 0.50,
-  w_ndvi = 0.50,
-  w_canopy = 0.50
+  w_ndvi = 1,
+  w_canopy = 0
 ) {
   message("--- Initializing Morphological Block Analysis Suite ---")
 
@@ -2889,23 +2800,21 @@ build_urban_block_priority <- function(
 
   pop_sum <- exactextractr::exact_extract(priority_data$population_raster, sf::st_transform(blocks, sf::st_crs(priority_data$population_raster)), "sum")
   blocks$population <- as.numeric(pop_sum)
-  blocks$population[is.na(blocks$population)] <- 0
+  .uh_require_complete(blocks$population, "block population")
 
   lst_mean <- exactextractr::exact_extract(priority_data$lst_raster, sf::st_transform(blocks, sf::st_crs(priority_data$lst_raster)), "mean")
   blocks$lst_mean_c <- as.numeric(lst_mean)
-  mean_valid_lst <- mean(blocks$lst_mean_c, na.rm = TRUE)
-  blocks$lst_mean_c[is.na(blocks$lst_mean_c)] <- if (is.finite(mean_valid_lst)) mean_valid_lst else 25.0
+  .uh_require_complete(blocks$lst_mean_c, "block LST")
 
   ndvi_mean <- exactextractr::exact_extract(priority_data$ndvi_raster, sf::st_transform(blocks, sf::st_crs(priority_data$ndvi_raster)), "mean")
   blocks$ndvi_mean <- as.numeric(ndvi_mean)
-  mean_valid_ndvi <- mean(blocks$ndvi_mean, na.rm = TRUE)
-  blocks$ndvi_mean[is.na(blocks$ndvi_mean)] <- if (is.finite(mean_valid_ndvi)) mean_valid_ndvi else 0.2
+  .uh_require_complete(blocks$ndvi_mean, "block NDVI")
 
   # Canopy Height Model -> Canopy Coverage Percentage (>= 2m)
   chm_bool <- priority_data$chm_raster >= 2
   canopy_frac <- exactextractr::exact_extract(chm_bool, sf::st_transform(blocks, sf::st_crs(chm_bool)), "mean")
   blocks$canopy_pct_chm <- as.numeric(canopy_frac) * 100
-  blocks$canopy_pct_chm[is.na(blocks$canopy_pct_chm)] <- 0
+  .uh_require_complete(blocks$canopy_pct_chm, "block CHM")
 
   # Rigorous Percentile-based MCDA framework
   message("[blocks] Modeling block-level shade mitigation priorities...")
@@ -2916,7 +2825,10 @@ build_urban_block_priority <- function(
 
   # Scale indices from 0-1 using user-defined MCDA weights
   blocks$heat_exposure_index <- w_heat * lst_rank + w_pop * pop_rank
-  blocks$cooling_deficit_index <- w_ndvi * (1 - ndvi_rank) + w_canopy * (1 - chm_rank)
+  if (w_ndvi < 0 || w_canopy < 0 || w_ndvi + w_canopy <= 0)
+    stop("w_ndvi and w_canopy must be nonnegative with positive sum.", call. = FALSE)
+  blocks$cooling_deficit_index <-
+    (w_ndvi * (1 - ndvi_rank) + w_canopy * (1 - chm_rank)) / (w_ndvi + w_canopy)
 
   blocks$tree_need_score <- 100 * sqrt(blocks$heat_exposure_index * blocks$cooling_deficit_index)
   blocks$tree_need_score[is.na(blocks$tree_need_score)] <- 0
@@ -3028,11 +2940,12 @@ build_urban_block_priority <- function(
   sum(x * (2 * seq_len(n) - n - 1)) / (n * sum(x))
 }
 
-#' Highly Optimized Bootstrap Gini Inequality Index
+#' Independent-observation bootstrap Gini inequality index
 #'
 #' @param data_vector Numeric vector of values to calculate Gini for.
 #' @param R Number of bootstrap replicates.
-#' @return A list with the Gini value and bootstrap confidence interval.
+#' @return A list with the Gini value and iid bootstrap interval. It ignores
+#'   spatial autocorrelation and is unsuitable for spatial inference.
 #' @export
 compute_gini_bootstrap <- function(data_vector, R = 100) {
   if (!is.numeric(data_vector) || !length(data_vector) ||
@@ -3090,7 +3003,7 @@ plot_hybrid_field_map <- function(priority_data, title = "Hybrid Field Map", sub
   # FAST CARTOGRAPHY: Compute bar chart stats directly without slow spatial geometry union
   message("[cartography] Computing policy field statistics...")
 
-  geom_df_3857$area_m2 <- as.numeric(sf::st_area(geom_df_3857))
+  geom_df_3857$area_m2 <- as.numeric(sf::st_area(sf::st_transform(geom_df, 6933)))
 
   dissolved_stats <- sf::st_drop_geometry(geom_df_3857) |>
     dplyr::group_by(quadrant) |>
@@ -3112,26 +3025,24 @@ plot_hybrid_field_map <- function(priority_data, title = "Hybrid Field Map", sub
 
   sub_text <- subtitle
 
-  lst_date <- if (!is.null(priority_data$scenes$lst_datetime)) substr(priority_data$scenes$lst_datetime, 1, 10) else "2025-08-08"
-  ndvi_date <- if (!is.null(priority_data$scenes$ndvi_datetime)) substr(priority_data$scenes$ndvi_datetime, 1, 10) else "2025-08-11"
-
   cap_text <- if (!is.null(caption)) caption else sprintf(
-    "Methodology: Contiguous Policy Fields (Dissolved with Selective Texturing)\nData: Landsat-9 LST (%s), Sentinel-2 NDVI (%s), Meta Canopy Height Model (CHM), GHSL Population Grid, OSM Landuse & Water\nPolicy Equity: Population-weighted Spatial Priority Gini = %.3f [95%% CI: %.3f - %.3f] * generated by greenR",
-    lst_date, ndvi_date, gini_res$gini, gini_res$ci_low, gini_res$ci_high
+    "Methodology: heuristic median-based classes\nData: %s\nUnweighted score Gini = %.3f (descriptive; spatial CI not estimated) * generated by greenR",
+    .uh_data_caption(priority_data), gini_res$gini
   )
 
   # 1. Main Map Canvas
   map_plot <- ggplot2::ggplot() +
-    ggspatial::annotation_map_tile(type = "cartolight", zoom = 14, alpha = 0.90) +
+    .greenr_map_context(priority_data) +
     # Render zones contiguously (matching stroke hides sub-pixel grid lines natively)
     ggplot2::geom_sf(data = geom_df_3857, ggplot2::aes(fill = quadrant, color = quadrant), linewidth = 0.05) +
     ggplot2::scale_fill_manual(values = .uh_quadrant_palette, guide = "none") +
+    ggplot2::scale_color_manual(values = .uh_quadrant_palette, guide = "none") +
     ggspatial::annotation_scale(location = "bl", width_hint = 0.18, style = "ticks", text_cex = 0.8) +
     ggplot2::coord_sf(datum = sf::st_crs(3857)) +
     ggplot2::labs(
       title = title,
       subtitle = sub_text,
-      caption = cap_text
+      caption = paste(cap_text, if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else "", sep="\n")
     ) +
     .uh_decision_map_theme() +
     ggplot2::theme(legend.position = "none")
@@ -3230,16 +3141,13 @@ plot_priority_action_classes <- function(priority_data, title = "Tree-planting d
 
   sub_text <- if (!is.null(subtitle)) subtitle else "Priority summarized to organic divisions. Red marks the top 5% of intervention hotspots by heat and exposure."
 
-  lst_date <- if (!is.null(priority_data$scenes$lst_datetime)) substr(priority_data$scenes$lst_datetime, 1, 10) else "2025-08-08"
-  ndvi_date <- if (!is.null(priority_data$scenes$ndvi_datetime)) substr(priority_data$scenes$ndvi_datetime, 1, 10) else "2025-08-11"
-
   cap_text <- if (!is.null(caption)) caption else sprintf(
-    "Methodology: Multi-Criteria Spatial Decision Priorities (Organic Blocks Scale)\nData: Landsat-9 LST (%s), Sentinel-2 NDVI (%s), Meta Canopy Height Model (CHM), GHSL Population Grid, OSM Landuse & Water\nPolicy Equity: Population-weighted Spatial Priority Gini = %.3f [95%% CI: %.3f - %.3f] * generated by greenR",
-    lst_date, ndvi_date, gini_res$gini, gini_res$ci_low, gini_res$ci_high
+    "Methodology: heuristic block priorities\nData: %s\nUnweighted score Gini = %.3f (descriptive; spatial CI not estimated) * generated by greenR",
+    .uh_data_caption(priority_data), gini_res$gini
   )
 
   ggplot2::ggplot() +
-    ggspatial::annotation_map_tile(type = "cartolight", zoom = 14, alpha = 0.90) +
+    .greenr_map_context(priority_data) +
     ggplot2::geom_sf(data = geom_df_3857, ggplot2::aes(fill = action_class), color = "white", linewidth = 0.05, alpha = 0.85) +
     ggplot2::scale_fill_manual(values = .uh_action_palette, name = "Action class") +
     ggspatial::annotation_scale(location = "bl", width_hint = 0.18, style = "ticks", text_cex = 0.8) +
@@ -3247,7 +3155,7 @@ plot_priority_action_classes <- function(priority_data, title = "Tree-planting d
     ggplot2::labs(
       title = title,
       subtitle = sub_text,
-      caption = cap_text
+      caption = paste(cap_text, if(!is.null(.greenr_basemap())) .greenr_basemap()$credit else "", sep="\n")
     ) +
     .uh_decision_map_theme() +
     ggplot2::theme(
@@ -3274,8 +3182,8 @@ plot_multilayer_leaflet <- function(priority_data, canyon_data = NULL, palette =
   canyons_4326 <- if (!is.null(canyon_data$canyons)) sf::st_transform(canyon_data$canyons, 4326) else NULL
 
   m <- leaflet::leaflet() |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron (Light)") |>
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark Matter (Dark)")
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Basemap") |>
+    .greenr_add_tiles(leaflet::providers$Esri.WorldGrayCanvas, group = "Gray canvas")
 
   # Setup palettes
   pal_priority <- leaflet::colorNumeric(
@@ -3370,7 +3278,7 @@ plot_multilayer_leaflet <- function(priority_data, canyon_data = NULL, palette =
 
   m <- m |>
     leaflet::addLayersControl(
-      baseGroups = c("Positron (Light)", "Dark Matter (Dark)"),
+      baseGroups = c("Basemap", "Gray canvas"),
       overlayGroups = group_names,
       options = leaflet::layersControlOptions(collapsed = FALSE)
     ) |>
@@ -3429,7 +3337,7 @@ save_3d_deckgl_dashboard <- function(priority_data, output_file, render_type = c
   <title>3D Street-Canyon & Neighborhood Explorer</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/deck.gl@latest/dist.min.js"></script>
+  <script src="https://unpkg.com/deck.gl@9.1.9/dist.min.js"></script>
   <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
@@ -3514,7 +3422,7 @@ save_3d_deckgl_dashboard <- function(priority_data, output_file, render_type = c
         <span>Watch</span>
         <span>Emerging</span>
         <span>High</span>
-        <span>Top 5% (>80)</span>
+        <span>80-100</span>
       </div>
     </div>
 
@@ -3526,8 +3434,8 @@ save_3d_deckgl_dashboard <- function(priority_data, output_file, render_type = c
     const geojsonData = __GEOJSON_DATA__;
 
     const mapStyles = {
-      dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-      light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json"
+      dark: __BASEMAP_DARK__,
+      light: __BASEMAP_LIGHT__
     };
 
     let currentStyle = "dark";
@@ -3692,7 +3600,9 @@ save_3d_deckgl_dashboard <- function(priority_data, output_file, render_type = c
 </body>
 </html>'
 
-  # Bulletproof search and replacement
+  html_template <- gsub("__BASEMAP_DARK__", .greenr_style_json(TRUE), html_template, fixed=TRUE)
+  html_template <- gsub("__BASEMAP_LIGHT__", .greenr_style_json(FALSE), html_template, fixed=TRUE)
+  # Template substitutions
   html_template <- gsub("__MODEL_SCALE__", model_scale, html_template, fixed = TRUE)
   html_template <- gsub("__GEOJSON_DATA__", geojson_str, html_template, fixed = TRUE)
   html_template <- gsub("__CENTER_LON__", as.character(lon_center), html_template, fixed = TRUE)

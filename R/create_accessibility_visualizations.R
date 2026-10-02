@@ -170,9 +170,9 @@ create_accessibility_visualizations <- function(
   has_pop <- "population" %in% names(grid_ll) && any(!is.na(grid_ll$population))
 
   leaflet_map <- leaflet::leaflet(grid_ll) %>%
-    leaflet::addProviderTiles("CartoDB.Positron", group = "Positron") %>%
-    leaflet::addProviderTiles("OpenStreetMap.Mapnik", group = "OpenStreetMap") %>%
-    leaflet::addProviderTiles("Esri.WorldImagery", group = "Satellite") %>%
+    .greenr_add_tiles("OpenStreetMap", group = "Basemap") %>%
+    .greenr_add_tiles("OpenStreetMap.Mapnik", group = "OpenStreetMap") %>%
+    .greenr_add_tiles("Esri.WorldImagery", group = "Satellite") %>%
     # Distance (green access) layer
     leaflet::addPolygons(
       color = ~leaflet::colorNumeric("magma", grid_ll$distance, reverse = TRUE)(grid_ll$distance),
@@ -196,7 +196,7 @@ create_accessibility_visualizations <- function(
       popup = "Green Space"
     ) %>%
     leaflet::addLayersControl(
-      baseGroups = c("Positron", "OpenStreetMap", "Satellite"),
+      baseGroups = c("Basemap", "OpenStreetMap", "Satellite"),
       overlayGroups = c("Green Access", "Population", "Green Areas"),
       options = leaflet::layersControlOptions(collapsed = FALSE)
     ) %>%

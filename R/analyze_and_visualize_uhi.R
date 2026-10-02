@@ -78,7 +78,8 @@ utils::globalVariables(c(
 #'     }
 #'   }
 #'   \item{stats}{A list with descriptive statistics, correlations, regression results,
-#'     and spatial autocorrelation (Moran's I)}
+#'     and spatial autocorrelation (Moran's I). Correlation p-values are NA
+#'     because independent-hex tests do not account for spatial dependence.}
 #'   \item{meta}{Metadata including location, data sources, processing parameters,
 #'     and timing information}
 #'   \item{export_geojson}{Function to export results to GeoJSON}
@@ -981,6 +982,10 @@ analyze_and_visualize_uhi <- function(
 
   # Correlations (land only)
   stats_list$correlations <- list()
+  stats_list$spatial_inference_note <- paste(
+    "Correlations and OLS coefficients are descriptive.",
+    "Independent-hex p-values are omitted because spatial dependence has not been accounted for."
+  )
   complete_cases <- land_idx &
     !is.na(hex_sf$LST_mean) &
     !is.na(hex_sf$Green_Pct) &
@@ -991,34 +996,32 @@ analyze_and_visualize_uhi <- function(
     built_var <- var(hex_sf$Built_Pct[complete_cases], na.rm = TRUE)
 
     if (green_var > 0) {
-      cor_g <- tryCatch({
-        cor.test(
-          hex_sf$LST_mean[complete_cases],
-          hex_sf$Green_Pct[complete_cases],
-          method = correlation_method
-        )
-      }, error = function(e) NULL)
+      cor_g <- tryCatch(list(
+        estimate = stats::cor(hex_sf$LST_mean[complete_cases],
+                              hex_sf$Green_Pct[complete_cases],
+                              method = correlation_method),
+        p.value = NA_real_, method = "descriptive spatial correlation"
+      ), error = function(e) NULL)
 
       if (!is.null(cor_g)) {
         stats_list$correlations$Green_LST <- cor_g
-        message(sprintf("   LST~Green (land): r = %.3f (p = %.4f)",
-                        cor_g$estimate, cor_g$p.value))
+        message(sprintf("   LST~Green (land): correlation = %.3f (descriptive; no spatial p-value)",
+                        cor_g$estimate))
       }
     }
 
     if (built_var > 0) {
-      cor_b <- tryCatch({
-        cor.test(
-          hex_sf$LST_mean[complete_cases],
-          hex_sf$Built_Pct[complete_cases],
-          method = correlation_method
-        )
-      }, error = function(e) NULL)
+      cor_b <- tryCatch(list(
+        estimate = stats::cor(hex_sf$LST_mean[complete_cases],
+                              hex_sf$Built_Pct[complete_cases],
+                              method = correlation_method),
+        p.value = NA_real_, method = "descriptive spatial correlation"
+      ), error = function(e) NULL)
 
       if (!is.null(cor_b)) {
         stats_list$correlations$Built_LST <- cor_b
-        message(sprintf("   LST~Built (land): r = %.3f (p = %.4f)",
-                        cor_b$estimate, cor_b$p.value))
+        message(sprintf("   LST~Built (land): correlation = %.3f (descriptive; no spatial p-value)",
+                        cor_b$estimate))
       }
     }
   }
@@ -1145,9 +1148,9 @@ analyze_and_visualize_uhi <- function(
   )
 
   interactive_map <- leaflet::leaflet() %>%
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron") %>%
-    leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark") %>%
-    leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") %>%
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Basemap") %>%
+    .greenr_add_tiles(leaflet::providers$Esri.WorldGrayCanvas, group = "Gray canvas") %>%
+    .greenr_add_tiles(leaflet::providers$Esri.WorldImagery, group = "Satellite") %>%
     leaflet::addPolygons(data = bound_map, fill = FALSE, color = "black", weight = 2, group = "Boundary") %>%
     leaflet::addPolygons(
       data = hex_map,
@@ -1195,7 +1198,7 @@ analyze_and_visualize_uhi <- function(
       popup       = ~popup_hot
     ) %>%
     leaflet::addLayersControl(
-      baseGroups    = c("Positron", "Dark", "Satellite"),
+      baseGroups    = c("OpenStreetMap", "Gray canvas", "Satellite"),
       overlayGroups = c("Boundary", "LST", "Deviation", "Green", "Built", "Hotspots"),
       options       = leaflet::layersControlOptions(collapsed = FALSE)
     ) %>%
@@ -1406,8 +1409,7 @@ analyze_and_visualize_uhi <- function(
     m <- stats::lm(y ~ x)
     sm <- summary(m)
     adjR2 <- sm$adj.r.squared
-    p <- sm$coefficients[2, 4]
-    sprintf("n = %d\nr = %.2f\nAdj R^2 = %.2f\np = %.3g", n, r, adjR2, p)
+    sprintf("n = %d\nr = %.2f\nAdj R^2 = %.2f\nDescriptive fit", n, r, adjR2)
   }
 
   # Annotation with background box - positioned at top-right to avoid data
@@ -1449,7 +1451,7 @@ analyze_and_visualize_uhi <- function(
       colours = c("#EFF3FF","#BDD7E7","#6BAED6","#3182BD","#08519C"),
       name = "Count"
     ) +
-    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#bd0026", se = TRUE) +
+    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#bd0026", se = FALSE) +
     ggplot2::labs(title = "LST vs Built-up Intensity", x = "Built (%)", y = "LST (deg C)") +
     annot_stats(label_built) +
     ggplot2::theme_minimal() +
@@ -1467,7 +1469,7 @@ analyze_and_visualize_uhi <- function(
       colours = c("#f7fcf5","#c7e9c0","#74c476","#31a354","#006d2c"),
       name = "Count"
     ) +
-    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#006d2c", se = TRUE) +
+    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#006d2c", se = FALSE) +
     ggplot2::labs(title = "LST vs Green Coverage", x = "Green (%)", y = "LST (deg C)") +
     annot_stats(label_green) +
     ggplot2::theme_minimal() +
@@ -1483,7 +1485,7 @@ analyze_and_visualize_uhi <- function(
 
   scatter_partial <- ggplot2::ggplot(df, ggplot2::aes(Built_Pct, resid_g)) +
     ggplot2::geom_point(alpha = 0.25, size = 0.7, colour = "#888888") +
-    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#bd0026", se = TRUE) +
+    ggplot2::geom_smooth(method = "lm", linewidth = 0.7, colour = "#bd0026", se = FALSE) +
     ggplot2::labs(
       title = "Partial UHI Effect",
       subtitle = "Residuals of LST ~ Green, regressed on Built",

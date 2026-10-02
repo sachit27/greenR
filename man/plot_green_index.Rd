@@ -6,7 +6,7 @@
 \usage{
 plot_green_index(
   green_index_data,
-  base_map = "CartoDB.DarkMatter",
+  base_map = "OpenStreetMap",
   colors = c("#F0BB62", "#BFDB38", "#367E18"),
   text_size = 12,
   resolution = 350,
@@ -25,8 +25,8 @@ plot_green_index(
 \arguments{
 \item{green_index_data}{A data frame containing the calculated green index values for each edge.}
 
-\item{base_map}{Character, base map to use. Default is "CartoDB.DarkMatter".
-Other options include "Stamen.Toner", "CartoDB.Positron", "Esri.NatGeoWorldMap",
+\item{base_map}{Character, base map to use. Default is "OpenStreetMap".
+Other options include "Stamen.Toner", "OpenStreetMap", "Esri.NatGeoWorldMap",
 "MtbMap", "Stamen.TonerLines", and "Stamen.TonerLabels".}
 
 \item{colors}{Character vector, colors for the gradient. Default is c("#F0BB62", "#BFDB38", "#367E18").}

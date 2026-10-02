@@ -7,7 +7,7 @@
 create_linestring_3D(
   data,
   green_index_col,
-  mapbox_token,
+  mapbox_token = NULL,
   output_file = "linestring_map.html",
   color_palette = "interpolateViridis",
   map_center = NULL,
@@ -19,7 +19,7 @@ create_linestring_3D(
 
 \item{green_index_col}{Character, name of the column containing the green index values.}
 
-\item{mapbox_token}{Character, Mapbox access token for rendering the map.}
+\item{mapbox_token}{Optional Mapbox access token. If supplied, Mapbox buildings can be extruded; otherwise MapLibre uses the configured greenR basemap without a key.}
 
 \item{output_file}{Character, name of the output HTML file. Default is "linestring_map.html".}
 
@@ -33,7 +33,7 @@ create_linestring_3D(
 NULL. The function creates an HTML file and opens it in the viewer or browser.
 }
 \description{
-This function creates a 3D linestring map using Mapbox GL JS and saves it as an HTML file. The data should not contain complex objects like list columns.
+This function creates a pitched interactive linestring map using MapLibre GL JS by default and saves it as an HTML file. The data should not contain complex objects like list columns.
 The map visualizes linestring data with an associated green index, allowing for interactive
 exploration of the data.
 }
@@ -52,7 +52,6 @@ if (interactive()) {
     green_index = runif(5)
   )
   st_crs(lines) <- 4326
-  mapbox_token <- "your_mapbox_token"
-  create_linestring_3D(lines, "green_index", mapbox_token)
+  create_linestring_3D(lines, "green_index")
 }
 }

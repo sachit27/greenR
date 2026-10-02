@@ -26,7 +26,7 @@ uh_svf(
   spacing_street_m = 25,
   spacing_grid_m = 50,
   max_distance_m = 300,
-  step_m = 10,
+  step_m = NULL,
   n_directions = 72,
   observer_height_m = 1.5,
   target_resolution_m = NULL,
@@ -56,7 +56,8 @@ uh_svf(
 
 \item{analysis_buffer_m}{Optional buffer around boundary for analysis.}
 
-\item{analysis_scale}{Either "city_screening" (coarser) or "street_canyon_local" (high-res).}
+\item{analysis_scale}{Either "city_screening" (coarser) or "street_canyon_local"
+(requires a local obstruction grid of 2 m or finer).}
 
 \item{terrain_source}{Either "local" or "elevatr".}
 
@@ -86,9 +87,10 @@ uh_svf(
 
 \item{max_distance_m}{Horizon search radius in metres.}
 
-\item{step_m}{Step length along each ray.}
+\item{step_m}{Deprecated and ignored. Rays are traced with an exact grid traversal that visits
+every obstruction cell they cross, so no obstacle can be stepped over.}
 
-\item{n_directions}{Number of azimuth directions.}
+\item{n_directions}{Number of azimuth directions (compass azimuths, 0 = north, clockwise).}
 
 \item{observer_height_m}{Observer height above ground.}
 
@@ -127,6 +129,9 @@ Calculates SVF using the mathematically rigorous horizontal solid-angle projecti
 proposed by Johnson and Watson (1984) and Oke (1987): SVF = mean(cos^2(horizon_angle)),
 representing the horizontal projection of visible sky accounting for the Lambert cosine law
 of diffuse solar irradiance. Generates interactive Leaflet maps with dynamic layer-linked legends.
+Street-canyon local mode requires an obstruction grid of 2 m or finer.
+City-screening outputs from coarse online terrain are unsuitable for
+street-canyon inference.
 }
 \examples{
 \dontrun{

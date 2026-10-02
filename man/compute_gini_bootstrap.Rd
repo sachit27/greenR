@@ -2,7 +2,7 @@
 % Please edit documentation in R/uh_decision.R
 \name{compute_gini_bootstrap}
 \alias{compute_gini_bootstrap}
-\title{Highly Optimized Bootstrap Gini Inequality Index}
+\title{Independent-observation bootstrap Gini inequality index}
 \usage{
 compute_gini_bootstrap(data_vector, R = 100)
 }
@@ -12,8 +12,9 @@ compute_gini_bootstrap(data_vector, R = 100)
 \item{R}{Number of bootstrap replicates.}
 }
 \value{
-A list with the Gini value and bootstrap confidence interval.
+A list with the Gini value and iid bootstrap interval. It ignores
+spatial autocorrelation and is unsuitable for spatial inference.
 }
 \description{
-Highly Optimized Bootstrap Gini Inequality Index
+Independent-observation bootstrap Gini inequality index
 }

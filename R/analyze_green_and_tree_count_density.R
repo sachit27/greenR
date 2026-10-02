@@ -233,12 +233,12 @@ analyze_green_and_tree_count_density <- function(
   }
   providers <- list(
     OpenStreetMap    = leaflet::providers$OpenStreetMap,
-    Positron         = leaflet::providers$CartoDB.Positron,
-    DarkMatter       = leaflet::providers$CartoDB.DarkMatter,
+    Positron         = leaflet::providers$OpenStreetMap,
+    DarkMatter       = leaflet::providers$Esri.WorldGrayCanvas,
     Esri.WorldImagery= leaflet::providers$Esri.WorldImagery
   )
   m <- leaflet::leaflet() %>%
-    leaflet::addProviderTiles(providers[[tile_provider]]) %>%
+    .greenr_add_tiles(providers[[tile_provider]]) %>%
     leaflet::addPolygons(
       data       = hex_polys,
       fillColor  = ~pal(density_category),

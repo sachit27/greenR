@@ -64,7 +64,7 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
 
   # Create a Leaflet map with base tiles
   map <- leaflet::leaflet(green_areas) %>%
-    leaflet::addTiles(group = "OpenStreetMap") # Default OSM tiles
+    leaflet::addTiles(group = "Basemap") # Default OSM tiles
 
   # Add the clustered green areas to the map
   map <- map %>%
@@ -80,12 +80,12 @@ green_space_clustering <- function(green_areas_data, num_clusters) {
 
   # Add different tile providers
   map <- map %>%
-    leaflet::addProviderTiles("CartoDB.Positron", group = "Positron")
+    .greenr_add_tiles("OpenStreetMap", group = "Basemap")
 
   # Add layer control
   map <- map %>%
     leaflet::addLayersControl(
-      baseGroups = c("OpenStreetMap", "Positron"),
+      baseGroups = c("Basemap", "OpenStreetMap"),
       overlayGroups = c("Clusters"),
       options = leaflet::layersControlOptions(collapsed = FALSE)
     )

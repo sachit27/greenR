@@ -21,6 +21,8 @@ build_urban_priority_grid(
   lst_datetime = "2025-06-01/2025-08-31",
   cache_dir = NULL,
   use_cache = FALSE,
+  satellite_max_pages = 12L,
+  satellite_min_coverage = 0.995,
   w_heat = 0.6,
   w_pop = 0.4,
   w_exposure = 0.55,
@@ -65,6 +67,10 @@ build_urban_priority_grid(
 \item{cache_dir}{Local caching directory.}
 
 \item{use_cache}{Logical. If TRUE, uses cached data if available. Default is FALSE.}
+
+\item{satellite_max_pages}{Maximum STAC result pages to inspect per indicator (50 items per page; default 12).}
+
+\item{satellite_min_coverage}{Minimum clear-pixel fraction across the analysis boundary required before scoring (default 0.995).}
 
 \item{w_heat}{MCDA weight for LST.}
 

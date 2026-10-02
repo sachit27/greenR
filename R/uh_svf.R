@@ -1,5 +1,6 @@
+utils::globalVariables("inside_building")
+
 #' Strict High-Resolution Sky-View Factor (SVF) Calculation Engine
-#'
 #' @description
 #' Enforces explicit spatial quality tiers and handles hybrid data sources (local rasters/shapefiles,
 #' Global Building Atlas Parquet files via S3, and AWS terrain tiles via elevatr).
@@ -8,6 +9,9 @@
 #' proposed by Johnson and Watson (1984) and Oke (1987): SVF = mean(cos^2(horizon_angle)),
 #' representing the horizontal projection of visible sky accounting for the Lambert cosine law
 #' of diffuse solar irradiance. Generates interactive Leaflet maps with dynamic layer-linked legends.
+#' Street-canyon local mode requires an obstruction grid of 2 m or finer.
+#' City-screening outputs from coarse online terrain are unsuitable for
+#' street-canyon inference.
 #'
 #' @importFrom sf st_transform st_geometry st_centroid st_union st_coordinates st_bbox st_as_sfc st_sf st_sfc st_polygon st_multipolygon st_make_valid st_simplify st_read st_write st_intersection st_is_empty st_point_on_surface st_nearest_feature st_distance st_length st_line_sample st_cast st_crs
 #' @importFrom terra rast project crop mask rasterize ext values app res resample writeRaster vect extract
@@ -28,7 +32,8 @@
 #' @param bbox_crs CRS for numeric bbox input.
 #' @param boundary_simplify_m Simplification tolerance in metres for Osm boundary.
 #' @param analysis_buffer_m Optional buffer around boundary for analysis.
-#' @param analysis_scale Either "city_screening" (coarser) or "street_canyon_local" (high-res).
+#' @param analysis_scale Either "city_screening" (coarser) or "street_canyon_local"
+#'   (requires a local obstruction grid of 2 m or finer).
 #' @param terrain_source Either "local" or "elevatr".
 #' @param terrain_path Path to a local terrain raster or local terrain vector/TIN source when terrain_source="local".
 #' @param terrain_layer Optional layer name for vector terrain sources.
@@ -43,8 +48,9 @@
 #' @param spacing_street_m Street sampling interval in metres.
 #' @param spacing_grid_m Grid sampling interval in metres.
 #' @param max_distance_m Horizon search radius in metres.
-#' @param step_m Step length along each ray.
-#' @param n_directions Number of azimuth directions.
+#' @param step_m Deprecated and ignored. Rays are traced with an exact grid traversal that visits
+#'   every obstruction cell they cross, so no obstacle can be stepped over.
+#' @param n_directions Number of azimuth directions (compass azimuths, 0 = north, clockwise).
 #' @param observer_height_m Observer height above ground.
 #' @param target_resolution_m Optional coarsening target for the obstruction raster.
 #' @param return_raw_angles Whether to return raw horizon angles for skyline plotting.
@@ -141,7 +147,7 @@ uh_svf <- function(
   spacing_street_m = 25,
   spacing_grid_m = 50,
   max_distance_m = 300,
-  step_m = 10,
+  step_m = NULL,
   n_directions = 72,
   observer_height_m = 1.5,
   target_resolution_m = NULL,
@@ -290,7 +296,7 @@ uh_svf <- function(
     if (!is.null(canopy_meta) && !is.null(canopy_meta$raster)) {
       target_res <- mean(terra::res(terrain_raster))
       canopy_raster <- canopy_meta$raster
-      canopy_raster <- terra::project(canopy_raster, area$processing_crs, res = target_res, method = "bilinear")
+      canopy_raster <- terra::project(canopy_raster, area$processing_crs, res = target_res, method = "max")
       canopy_raster <- terra::crop(canopy_raster, terra::vect(area$analysis_area), snap = "out")
       canopy_raster <- terra::mask(canopy_raster, terra::vect(area$analysis_area))
       canopy_raster[canopy_raster < 0] <- NA
@@ -344,6 +350,12 @@ uh_svf <- function(
     message(sprintf("[svf] Step 3/7 complete (%.1fs). Canopy available: %s", proc.time()[[3]] - t0, !is.null(canopy_raster)))
   }
 
+  if (analysis_scale == "street_canyon_local" &&
+      (max(terra::res(terrain_raster)) > 2 ||
+       (!is.null(target_resolution_m) && target_resolution_m > 2))) {
+    stop("street_canyon_local requires an obstruction grid of 2 m or finer. Supply a finer local terrain model and do not coarsen target_resolution_m; coarse cells cannot resolve nearby walls.", call. = FALSE)
+  }
+
   message("[svf] Step 4/7: Building obstruction raster...")
   t0 <- proc.time()[[3]]
   obstruction <- .uh_svf_build_obstruction(
@@ -354,6 +366,7 @@ uh_svf <- function(
   )
 
   roads <- NULL
+  svf_settings <- NULL
   street_points <- NULL
   street_summary <- NULL
   message(sprintf("[svf] Step 4/7 complete (%.1fs).", proc.time()[[3]] - t0))
@@ -361,7 +374,7 @@ uh_svf <- function(
   if (sample_mode %in% c("street", "both")) {
     message("[svf] Step 5/7: Fetching street network and computing street SVF...")
     t0 <- proc.time()[[3]]
-    roads <- .uh_svf_get_osm_roads(area$analysis_area, timeout = osm_timeout)
+    roads <- .uh_svf_get_osm_roads(area$sample_area, timeout = osm_timeout)
     street_points <- .uh_svf_make_street_points(roads, spacing_m = spacing_street_m)
     street_points <- .uh_svf_compute_points(
       sample_points = street_points,
@@ -371,8 +384,10 @@ uh_svf <- function(
       max_distance_m = max_distance_m,
       step_m = step_m,
       observer_height_m = observer_height_m,
-      return_raw_angles = return_raw_angles
+      return_raw_angles = return_raw_angles,
+      building_raster = obstruction$buildings
     )
+    svf_settings <- attr(street_points, "svf_settings")
     street_summary <- .uh_svf_summarise_streets(street_points, roads)
     street_points <- sf::st_filter(street_points, area$boundary_proj)
     street_points <- street_points[sf::st_geometry_type(street_points) %in% c("POINT", "MULTIPOINT"), ]
@@ -388,7 +403,7 @@ uh_svf <- function(
   if (sample_mode %in% c("grid", "both")) {
     message("[svf] Step 6/7: Computing grid SVF and building-adjacent SVF...")
     t0 <- proc.time()[[3]]
-    grid_points <- .uh_svf_make_grid_points(area$analysis_area, spacing_m = spacing_grid_m)
+    grid_points <- .uh_svf_make_grid_points(area$sample_area, spacing_m = spacing_grid_m)
     grid_points <- .uh_svf_compute_points(
       sample_points = grid_points,
       terrain_raster = obstruction$terrain,
@@ -397,14 +412,17 @@ uh_svf <- function(
       max_distance_m = max_distance_m,
       step_m = step_m,
       observer_height_m = observer_height_m,
-      return_raw_angles = return_raw_angles
+      return_raw_angles = return_raw_angles,
+      building_raster = obstruction$buildings
     )
+    svf_settings <- attr(grid_points, "svf_settings")
     building_svf <- .uh_svf_summarise_buildings(grid_points, buildings)
     building_svf <- sf::st_filter(building_svf, area$boundary_proj)
     building_svf <- building_svf[sf::st_geometry_type(building_svf) %in% c("POLYGON", "MULTIPOLYGON"), ]
     building_svf <- building_svf[!sf::st_is_empty(building_svf), ]
     message(sprintf("[svf] Step 6/7 complete (%.1fs). %d grid points, %d buildings.", proc.time()[[3]] - t0, nrow(grid_points), if (!is.null(building_svf)) nrow(building_svf) else 0))
   }
+
 
   quality_tier <- if (analysis_scale == "street_canyon_local") {
     "local_high_quality"
@@ -428,7 +446,7 @@ uh_svf <- function(
       "terrain_source", "terrain_native_resolution_m",
       "buildings_source", "canopy_source",
       "sample_mode", "spacing_street_m", "spacing_grid_m",
-      "observer_height_m", "max_distance_m", "step_m", "n_directions",
+      "observer_height_m", "max_distance_m", "step_m", "n_directions", "azimuth_convention",
       "svf_formula", "notes"
     ),
     value = c(
@@ -445,9 +463,10 @@ uh_svf <- function(
       spacing_grid_m,
       observer_height_m,
       max_distance_m,
-      step_m,
+      "exact cell traversal (no step)",
       n_directions,
-      "mean(cos(max_horizon_angle_by_azimuth)^2)",
+      "compass azimuth, 0 = north, clockwise",
+      "mean(cos(max_horizon_angle_by_azimuth)^2); points inside buildings = NA",
       if (quality_tier == "global_screening") "Use for citywide screening, not for validated street-canyon microclimate claims." else "Suitable for local geometric street-form analysis if local inputs are valid."
     ),
     stringsAsFactors = FALSE
@@ -483,7 +502,7 @@ uh_svf <- function(
 
     # ---- 7b. Static PNG maps (fast) ----
     if (include_static && !is.null(street_summary) && nrow(street_summary) > 0) {
-      basemap <- tryCatch(.uh_svf_fetch_basemap(area$analysis_area, provider = "CartoDB.Positron", zoom = 15), error = function(e) NULL)
+      basemap <- tryCatch(.uh_svf_fetch_basemap(area$analysis_area, provider = getOption("greenR.static_basemap", "configured"), zoom = 15), error = function(e) NULL)
       plot_lw <- static_linewidth %||% (street_width * 0.22)
       p <- .uh_svf_plot_static(
         street_summary = street_summary,
@@ -494,9 +513,9 @@ uh_svf <- function(
         subtitle = sprintf("%s analysis * point-based horizon SVF at %.1f m observer height", gsub("_", " ", quality_tier), observer_height_m),
         linewidth = plot_lw
       )
-      ggplot2::ggsave(file.path(out_dir, paste0(output_prefix, "_street_svf_static.png")), p, width = 12, height = 9, dpi = 220, bg = "white")
+      .greenr_save_plot(file.path(out_dir, paste0(output_prefix, "_street_svf_static.png")), p, width = 12, height = 9, dpi = 220, bg = "white")
     } else if (include_static && !is.null(grid_points) && nrow(grid_points) > 0) {
-      basemap <- tryCatch(.uh_svf_fetch_basemap(area$analysis_area, provider = "CartoDB.Positron", zoom = 15), error = function(e) NULL)
+      basemap <- tryCatch(.uh_svf_fetch_basemap(area$analysis_area, provider = getOption("greenR.static_basemap", "configured"), zoom = 15), error = function(e) NULL)
       p <- .uh_svf_plot_grid_static(
         grid_points = grid_points,
         boundary = area$boundary,
@@ -505,14 +524,14 @@ uh_svf <- function(
         title = sprintf("%s grid-based SVF", city_name %||% "SVF"),
         subtitle = sprintf("%s analysis * point-based horizon SVF at %.1f m observer height", gsub("_", " ", quality_tier), observer_height_m)
       )
-      ggplot2::ggsave(file.path(out_dir, paste0(output_prefix, "_grid_svf_static.png")), p, width = 12, height = 9, dpi = 220, bg = "white")
+      .greenr_save_plot(file.path(out_dir, paste0(output_prefix, "_grid_svf_static.png")), p, width = 12, height = 9, dpi = 220, bg = "white")
     }
 
     # Distribution plot
     if (!is.null(street_summary) && nrow(street_summary) > 0) {
       tryCatch({
         dist_plot <- uh_svf_plot_distribution(street_summary, title = sprintf("%s: Urban Microclimate Exposure Assessment", city_name %||% "SVF"))
-        ggplot2::ggsave(file.path(out_dir, paste0(output_prefix, "_svf_distribution.png")), dist_plot, width = 14, height = 6, dpi = 220, bg = "white")
+        .greenr_save_plot(file.path(out_dir, paste0(output_prefix, "_svf_distribution.png")), dist_plot, width = 14, height = 6, dpi = 220, bg = "white")
       }, error = function(e) message(sprintf("[svf] Warning: Distribution plot skipped: %s", e$message)))
     }
     message(sprintf("[svf] Step 7b complete (%.1fs). Static maps written.", proc.time()[[3]] - t0))
@@ -533,9 +552,9 @@ uh_svf <- function(
       street_points_4326 <- sf::st_transform(street_points, 4326)
 
       leaf <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
-        leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron") |>
-        leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark") |>
-        leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
+        .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Basemap") |>
+        .greenr_add_tiles(leaflet::providers$Esri.WorldGrayCanvas, group = "Gray canvas") |>
+        .greenr_add_tiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
         leaflet::addPolylines(
           data = sf::st_transform(street_summary, 4326),
           group = "Street SVF",
@@ -598,7 +617,7 @@ uh_svf <- function(
       if (!is.null(building_svf_leaf) && nrow(building_svf_leaf) > 0) overlays <- c(overlays, "Building-adjacent SVF")
       leaf <- leaf |>
         leaflet::addLayersControl(
-          baseGroups = c("Positron", "Dark", "Imagery"),
+          baseGroups = c("Basemap", "Gray canvas", "Imagery"),
           overlayGroups = overlays,
           options = leaflet::layersControlOptions(collapsed = FALSE)
         )
@@ -619,9 +638,9 @@ uh_svf <- function(
       grid_points_4326 <- sf::st_transform(grid_points, 4326)
 
       leaf <- leaflet::leaflet(options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
-        leaflet::addProviderTiles(leaflet::providers$CartoDB.Positron, group = "Positron") |>
-        leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter, group = "Dark") |>
-        leaflet::addProviderTiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
+        .greenr_add_tiles(leaflet::providers$OpenStreetMap, group = "Basemap") |>
+        .greenr_add_tiles(leaflet::providers$Esri.WorldGrayCanvas, group = "Gray canvas") |>
+        .greenr_add_tiles(leaflet::providers$Esri.WorldImagery, group = "Imagery") |>
         leaflet::addCircleMarkers(
           data = grid_points_4326,
           group = "Grid SVF",
@@ -667,7 +686,7 @@ uh_svf <- function(
       if (!is.null(building_svf_leaf) && nrow(building_svf_leaf) > 0) overlays <- c(overlays, "Building-adjacent SVF")
       leaf <- leaf |>
         leaflet::addLayersControl(
-          baseGroups = c("Positron", "Dark", "Imagery"),
+          baseGroups = c("Basemap", "Gray canvas", "Imagery"),
           overlayGroups = overlays,
           options = leaflet::layersControlOptions(collapsed = FALSE)
         )
@@ -1103,11 +1122,9 @@ var bGJ=')
 var sGJ='
 
   part3 <- paste0('
-var dkT=["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"];
-var ltT=["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png","https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"];
 var isDark=true;
-function mkS(t){return{"version":8,"sources":{"rt":{"type":"raster","tiles":t,"tileSize":256}},"layers":[{"id":"base","type":"raster","source":"rt"}]}}
-var map=new maplibregl.Map({container:"map",style:mkS(dkT),center:[', clon, ',', clat, '],zoom:15,pitch:58,bearing:-20,antialias:true});
+function mkS(t){return{"version":8,"sources":{"rt":{"type":"raster","tiles":t,"tileSize":256,"maxzoom":19,"attribution":"&copy; <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}},"layers":[{"id":"base","type":"raster","source":"rt"}]}}
+var map=new maplibregl.Map({container:"map",style:', .greenr_style_json(TRUE), ',center:[', clon, ',', clat, '],zoom:15,pitch:58,bearing:-20,antialias:true});
 map.addControl(new maplibregl.NavigationControl());
 
 // Interactive palettes and configurations
@@ -1235,8 +1252,8 @@ function toggleTheme(){
   isDark=!isDark;
   document.body.style.background=isDark?"#0f172a":"#f8fafc";
   document.getElementById("pnl").className="panel "+(isDark?"dk":"lt");
-  if(map.getSource("rt")){
-    map.getSource("rt").setTiles(isDark?dkT:ltT);
+  if(map.getSource("base")){
+    map.getSource("base").setTiles(isDark ? (', .greenr_style_json(TRUE), ').sources.base.tiles : (', .greenr_style_json(FALSE), ').sources.base.tiles);
   }
 }
 </script></body></html>')
@@ -1363,13 +1380,16 @@ function toggleTheme(){
 .uh_svf_make_analysis_area <- function(boundary, bbox = NULL, bbox_crs = 4326, processing_crs = NULL, buffer_m = 0, radius_m = 300) {
   if (is.null(processing_crs)) processing_crs <- .uh_svf_utm_crs(boundary)
   boundary_proj <- sf::st_transform(boundary, processing_crs)
+  # sample_area: where SVF is reported. analysis_area: where obstruction data are loaded.
+  # The data area extends every sample location by the full horizon radius, so rays from
+  # points near the edge are not cut short (a cut-short ray would read as open sky).
   if (is.null(bbox)) {
-    buffer_use <- max(buffer_m, radius_m + 100)
-    area <- sf::st_as_sfc(sf::st_bbox(sf::st_buffer(boundary_proj, buffer_use)))
+    sample_area <- sf::st_as_sfc(sf::st_bbox(if (buffer_m > 0) sf::st_buffer(boundary_proj, buffer_m) else boundary_proj))
   } else {
-    area <- sf::st_transform(.uh_svf_coerce_bbox(bbox, bbox_crs = bbox_crs), processing_crs)
+    sample_area <- sf::st_transform(.uh_svf_coerce_bbox(bbox, bbox_crs = bbox_crs), processing_crs)
   }
-  list(boundary = boundary, boundary_proj = boundary_proj, analysis_area = area, processing_crs = processing_crs)
+  area <- sf::st_as_sfc(sf::st_bbox(sf::st_buffer(sample_area, radius_m + 50)))
+  list(boundary = boundary, boundary_proj = boundary_proj, sample_area = sample_area, analysis_area = area, processing_crs = processing_crs)
 }
 
 .uh_svf_geom_mean_z <- function(g) {
@@ -1511,10 +1531,16 @@ function toggleTheme(){
   bbox <- .uh_svf_boundary_bbox_wgs84(sf::st_transform(analysis_area, 4326))
   tile_files <- .uh_svf_gba_tiles_for_bbox(bbox)
   chunks <- list()
+  failed_tiles <- character(0)
 
   # Create an anonymous S3 connection to prevent IMDS credential probing freezes!
   bucket <- tryCatch(
-    arrow::s3_bucket("us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1", anonymous = TRUE, region = "us-west-2"),
+    {
+      # honour an HTTPS proxy when one is configured (Arrow's S3 client does not read it by itself)
+      px <- Sys.getenv("HTTPS_PROXY", Sys.getenv("https_proxy", ""))
+      if (nzchar(px)) arrow::s3_bucket("us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1", anonymous = TRUE, region = "us-west-2", proxy_options = px)
+      else arrow::s3_bucket("us-west-2.opendata.source.coop/tge-labs/globalbuildingatlas-lod1", anonymous = TRUE, region = "us-west-2")
+    },
     error = function(e) {
       message("[gba] Error: Unable to establish anonymous S3 connection: ", e$message)
       NULL
@@ -1539,7 +1565,7 @@ function toggleTheme(){
       NULL
     })
     
-    if (is.null(ds)) next
+    if (is.null(ds)) { failed_tiles <- c(failed_tiles, tile); next }
     
     chunk <- tryCatch(
       ds |>
@@ -1556,7 +1582,12 @@ function toggleTheme(){
         NULL
       }
     )
+    if (is.null(chunk)) failed_tiles <- c(failed_tiles, tile)
     if (!is.null(chunk) && nrow(chunk) > 0) chunks[[tile]] <- chunk
+  }
+
+  if (length(failed_tiles)) {
+    stop(sprintf("[gba] %d required building-tile queries failed; refusing partial SVF obstructions.", length(failed_tiles)), call. = FALSE)
   }
 
   if (length(chunks) == 0) return(NULL)
@@ -1566,6 +1597,8 @@ function toggleTheme(){
     sf::st_transform(processing_crs) |>
     sf::st_make_valid()
   buildings <- .uh_svf_spatial_intersection(buildings, analysis_area, processing_crs)
+  if (is.null(buildings)) return(NULL)
+  sf::st_geometry(buildings) <- "geometry"
   buildings <- buildings[sf::st_geometry_type(buildings) %in% c("POLYGON", "MULTIPOLYGON"), ]
   buildings <- buildings[!sf::st_is_empty(buildings), ]
   if (nrow(buildings) == 0) return(NULL)
@@ -1618,7 +1651,10 @@ function toggleTheme(){
   b <- b |>
     sf::st_transform(processing_crs) |>
     sf::st_make_valid()
+  # files differ in the geometry column name ("geom" in GeoPackage, "geometry" elsewhere)
+  sf::st_geometry(b) <- "geometry"
   b <- .uh_svf_spatial_intersection(b, analysis_area, processing_crs)
+  if (!is.null(b)) sf::st_geometry(b) <- "geometry"
   b <- b[sf::st_geometry_type(b) %in% c("POLYGON", "MULTIPOLYGON"), ]
   b <- b[!sf::st_is_empty(b), ]
   if (nrow(b) == 0) stop("No local buildings remain after clipping.", call. = FALSE)
@@ -1792,21 +1828,29 @@ function toggleTheme(){
         return(list(raster = NULL, source = "none", quality_tier = "none"))
       }
       
-      tile_id <- match$tile[[1]]
-      message(sprintf("[canopy] Intersecting Meta CHMv2 tile: %s. Downloading and cropping...", tile_id))
-      uri <- sprintf("/vsicurl/%s/chm/%s.tif", base_url, tile_id)
-      
-      chm_raster <- tryCatch(terra::rast(uri), error = function(e) NULL)
-      if (is.null(chm_raster)) {
-        message("[canopy] Failed to read remote Meta CHMv2 tile. Proceeding without canopy data.")
+      # read EVERY intersecting tile (an AOI crossing a tile edge otherwise loses canopy silently)
+      tile_ids <- unique(as.character(match$tile))
+      message(sprintf("[canopy] Intersecting Meta CHMv2 tile(s): %s", paste(tile_ids, collapse = ", ")))
+      pieces <- list()
+      for (tile_id in tile_ids) {
+        r <- tryCatch(terra::rast(sprintf("/vsicurl/%s/chm/%s.tif", base_url, tile_id)), error = function(e) NULL)
+        if (is.null(r)) stop(sprintf("[canopy] Intersecting CHMv2 tile %s could not be read; refusing partial coverage.", tile_id), call. = FALSE)
+        e <- terra::intersect(terra::ext(r), terra::ext(terra::vect(sf::st_transform(analysis_area, terra::crs(r)))))
+        if (is.null(e)) stop(sprintf("[canopy] Tile %s is listed as intersecting but its raster extent does not overlap the AOI.", tile_id), call. = FALSE)
+        pieces[[tile_id]] <- terra::crop(r, e, snap = "out")
+      }
+      if (!length(pieces)) {
+        message("[canopy] Failed to read remote Meta CHMv2 tiles. Proceeding without canopy data.")
         return(list(raster = NULL, source = "none", quality_tier = "none"))
       }
-      
-      # Crop and mask
+      chm_raster <- if (length(pieces) == 1) pieces[[1]] else terra::merge(terra::sprc(pieces))
+      # Meta stores whole metres in a Byte band; values above 250 are not heights
+      chm_raster <- terra::classify(chm_raster, cbind(250.5, Inf, NA))
       chm_crs <- sf::st_transform(analysis_area, terra::crs(chm_raster))
       canopy_crop <- terra::crop(chm_raster, terra::vect(chm_crs), snap = "out")
       canopy <- terra::mask(canopy_crop, terra::vect(chm_crs))
-      
+      tile_id <- paste(tile_ids, collapse = "-")
+
       # Save to cache
       cache_file <- file.path(cache_dir, paste0("chm_", tile_id, "_", safe_bbox, ".tif"))
       terra::writeRaster(canopy, cache_file, overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
@@ -1815,9 +1859,9 @@ function toggleTheme(){
   }
   
   if (!is.null(target_res)) {
-    canopy <- terra::project(canopy, processing_crs, res = target_res, method = "bilinear")
+    canopy <- terra::project(canopy, processing_crs, res = target_res, method = "max")
   } else {
-    canopy <- terra::project(canopy, processing_crs, method = "bilinear")
+    canopy <- terra::project(canopy, processing_crs, method = "near")
   }
   canopy <- terra::crop(canopy, terra::vect(analysis_area), snap = "out")
   canopy <- terra::mask(canopy, terra::vect(analysis_area))
@@ -1835,18 +1879,22 @@ function toggleTheme(){
   }
 
   template <- terra::rast(terra::ext(terrain_use), resolution = terra::res(terrain_use), crs = terra::crs(terrain_use))
-  building_top <- terra::rasterize(terra::vect(buildings), template, field = "roof_z", fun = "max", background = NA)
+  # touches = TRUE keeps buildings narrower than a cell (a cell holds the highest roof that touches it)
+  building_top <- if (!is.null(buildings) && nrow(buildings) > 0) terra::rasterize(terra::vect(buildings), template, field = "roof_z", fun = "max", background = NA, touches = TRUE) else NULL
+  if (is.null(building_top)) building_top <- terra::rast(template, vals = NA_real_)
   obstruction <- max(terrain_use, building_top, na.rm = TRUE)
   names(obstruction) <- "obstruction_z"
 
   if (!is.null(canopy_raster)) {
-    canopy_use <- terra::resample(canopy_raster, terrain_use, method = "bilinear")
+    # "max" keeps crown tops; bilinear averaging would lower them and open artificial gaps
+    canopy_use <- terra::resample(canopy_raster, terrain_use, method = "max")
     canopy_top <- terrain_use + canopy_use
     obstruction <- max(obstruction, canopy_top, na.rm = TRUE)
     names(obstruction) <- "obstruction_z"
   }
 
-  list(terrain = terrain_use, obstruction = obstruction)
+  names(building_top) <- "roof_z"
+  list(terrain = terrain_use, obstruction = obstruction, buildings = building_top)
 }
 
 .uh_svf_get_osm_roads <- function(analysis_area, timeout = 180, cache_dir = file.path("data_cache", "osm")) {
@@ -1999,51 +2047,57 @@ function toggleTheme(){
   pts
 }
 
-.uh_svf_compute_points <- function(sample_points, terrain_raster, obstruction_raster, n_directions = 72, max_distance_m = 300, step_m = 10, observer_height_m = 1.5, return_raw_angles = FALSE, n_cores = NULL) {
+.uh_svf_compute_points <- function(sample_points, terrain_raster, obstruction_raster, n_directions = 72, max_distance_m = 300, step_m = NULL, observer_height_m = 1.5, return_raw_angles = FALSE, n_cores = NULL, building_raster = NULL) {
+  if (!is.numeric(n_directions) || n_directions < 4) stop("n_directions must be >= 4.", call. = FALSE)
+  if (!is.numeric(max_distance_m) || max_distance_m <= 0) stop("max_distance_m must be positive.", call. = FALSE)
+  r_res <- terra::res(obstruction_raster)
+  cell <- min(r_res)
+  if (!is.null(step_m)) message("[svf] step_m is no longer used: rays now visit every raster cell they cross (exact traversal).")
   coords <- sf::st_coordinates(sample_points)[, c("X", "Y"), drop = FALSE]
   base_z <- as.numeric(terra::extract(terrain_raster, coords)[[1]])
   observer_z <- base_z + observer_height_m
-  directions_deg <- seq(0, 360 - 360 / n_directions, length.out = n_directions)
-  distances <- seq(step_m, max_distance_m, by = step_m)
+  directions_deg <- (seq_len(n_directions) - 1) * 360 / n_directions   # compass azimuths, 0 = north, clockwise
+  distances <- max_distance_m
 
-  obs_values <- as.vector(obstruction_raster)
   r_ext <- terra::ext(obstruction_raster)
-  r_res <- terra::res(obstruction_raster)
   r_dim <- dim(obstruction_raster)
-  xmin <- r_ext[1]
-  ymax <- r_ext[4]
-  xres <- r_res[1]
-  yres <- r_res[2]
-  ncol <- r_dim[2]
-  nrow <- r_dim[1]
-
-  # Call C++ implementation
   res <- svf_raycast_cpp(
     coords = coords,
-    obs_values = obs_values,
+    obs_values = as.vector(terra::values(obstruction_raster, mat = FALSE)),
     observer_z = observer_z,
     directions_deg = directions_deg,
     distances = distances,
-    xmin = xmin,
-    ymax = ymax,
-    xres = xres,
-    yres = yres,
-    ncol = ncol,
-    nrow = nrow,
+    xmin = r_ext[1], ymax = r_ext[4], xres = r_res[1], yres = r_res[2],
+    ncol = r_dim[2], nrow = r_dim[1],
     return_raw_angles = return_raw_angles
   )
 
+  # A sample point on a building footprint is inside the building: no sky-view factor.
+  inside_building <- rep(FALSE, nrow(coords))
+  if (!is.null(building_raster)) {
+    roof <- as.numeric(terra::extract(building_raster, coords)[[1]])
+    inside_building <- is.finite(roof) & is.finite(observer_z) & roof > observer_z
+  }
+  svf <- res$svf; mh <- res$mean_horizon; xh <- res$max_horizon
+  svf[inside_building] <- NA_real_; mh[inside_building] <- NA_real_; xh[inside_building] <- NA_real_
+
   sample_points$ground_z <- base_z
   sample_points$observer_z <- observer_z
-  sample_points$svf <- res$svf
-  sample_points$sky_obstruction <- 1 - res$svf
-  sample_points$mean_horizon_deg <- res$mean_horizon
-  sample_points$max_horizon_deg <- res$max_horizon
-  
+  sample_points$svf <- svf
+  sample_points$sky_obstruction <- 1 - svf
+  sample_points$mean_horizon_deg <- mh
+  sample_points$max_horizon_deg <- xh
+  sample_points$inside_building <- inside_building
+  sample_points$under_canopy <- (res$inside_obstacle %in% TRUE) & !inside_building
+  sample_points$ray_truncated_share <- res$truncated_share
   if (return_raw_angles) {
     sample_points$horizon_angles <- split(res$horizon_mat, row(res$horizon_mat))
   }
-  
+  attr(sample_points, "svf_settings") <- list(step_m = NA_real_, traversal = "exact cell traversal", cell_size_m = cell, n_directions = n_directions,
+                                              max_distance_m = max_distance_m, azimuth_convention = "compass, 0 = north, clockwise")
+  if (any(res$truncated_share > 0, na.rm = TRUE))
+    message(sprintf("[svf] %.1f%% of sample points have at least one ray leaving the obstruction data before %g m (see ray_truncated_share).",
+                    100 * mean(res$truncated_share > 0, na.rm = TRUE), max_distance_m))
   sample_points
 }
 
@@ -2053,16 +2107,20 @@ function toggleTheme(){
     dplyr::group_by(street_id) |>
     dplyr::summarise(
       point_n = dplyr::n(),
-      svf_mean = mean(svf, na.rm = TRUE),
-      svf_min = min(svf, na.rm = TRUE),
-      svf_p10 = stats::quantile(svf, 0.10, na.rm = TRUE),
-      mean_horizon_deg = mean(mean_horizon_deg, na.rm = TRUE),
+      svf_mean = .uh_svf_safe_stat(svf, mean),
+      svf_min = .uh_svf_safe_stat(svf, min),
+      svf_p10 = .uh_svf_safe_stat(svf, stats::quantile, probs = 0.10, names = FALSE),
+      mean_horizon_deg = .uh_svf_safe_stat(mean_horizon_deg, mean),
+      points_inside_building = sum(inside_building %in% TRUE),
       .groups = "drop"
     )
   dplyr::left_join(roads, stats, by = "street_id")
 }
 
 .uh_svf_summarise_buildings <- function(grid_points, buildings, max_match_distance_m = 45) {
+  # only outdoor points with a valid SVF can describe the space next to a building
+  grid_points <- grid_points[is.finite(grid_points$svf), ]
+  if (is.null(buildings) || nrow(buildings) == 0 || nrow(grid_points) == 0) return(buildings)
   ref_pts <- suppressWarnings(sf::st_point_on_surface(buildings))
   nearest <- sf::st_nearest_feature(ref_pts, grid_points)
   dist_m <- as.numeric(sf::st_distance(ref_pts, grid_points[nearest, ], by_element = TRUE))
@@ -2097,7 +2155,9 @@ function toggleTheme(){
 
 .uh_svf_palette <- c("#1f0f3b", "#433d84", "#2e78a6", "#84c7d3", "#dff0ef", "#f4d06f", "#ec8b3b")
 
-.uh_svf_fetch_basemap <- function(boundary, provider = "CartoDB.Positron", zoom = 15, cache_dir = file.path("data_cache", "basemaps")) {
+.uh_svf_fetch_basemap <- function(boundary, provider = getOption("greenR.static_basemap", "configured"), zoom = 15, cache_dir = file.path("data_cache", "basemaps")) {
+  if (is.null(provider)) return(NULL)
+  if (identical(provider,"configured")) return(.greenr_fetch_basemap(boundary, zoom))
   dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
   maptiles::get_tiles(sf::st_transform(boundary, 3857), provider = provider, crop = TRUE, zoom = zoom, cachedir = cache_dir)
 }
@@ -2165,7 +2225,7 @@ function toggleTheme(){
       datum = sf::st_crs(4326),
       expand = FALSE
     ) +
-    ggplot2::labs(title = title, subtitle = subtitle, caption = "Generated by greenR") +
+    ggplot2::labs(title = title, subtitle = subtitle, caption = paste("Generated by greenR | Vector context: OpenStreetMap contributors", if(!is.null(basemap)) .greenr_basemap()$credit else "", sep=" | ")) +
     .uh_svf_static_theme()
 }
 
@@ -2219,6 +2279,6 @@ function toggleTheme(){
       datum = sf::st_crs(4326),
       expand = FALSE
     ) +
-    ggplot2::labs(title = title, subtitle = subtitle, caption = "Generated by greenR") +
+    ggplot2::labs(title = title, subtitle = subtitle, caption = paste("Generated by greenR | Vector context: OpenStreetMap contributors", if(!is.null(basemap)) .greenr_basemap()$credit else "", sep=" | ")) +
     .uh_svf_static_theme()
 }

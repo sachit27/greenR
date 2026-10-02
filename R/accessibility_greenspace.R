@@ -95,7 +95,7 @@ accessibility_greenspace <- function(green_area_data, location_lat, location_lon
 
   # Generate leaflet map
   map <- leaflet::leaflet() %>%
-    leaflet::addProviderTiles(leaflet::providers$OpenStreetMap) %>%
+    .greenr_add_tiles(leaflet::providers$OpenStreetMap) %>%
     leaflet::addPolygons(
       data = osm_sf,
       fillColor = green_color,

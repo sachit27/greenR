@@ -2,7 +2,7 @@
 % Please edit documentation in R/uh_decision.R
 \name{build_street_canyon_priority}
 \alias{build_street_canyon_priority}
-\title{Morphological Street Canyon priority scoring engine (Mathematically Rigorous MCDA)}
+\title{Morphological street-canyon priority screening (heuristic MCDA)}
 \usage{
 build_street_canyon_priority(priority_data)
 }
@@ -10,5 +10,5 @@ build_street_canyon_priority(priority_data)
 \item{priority_data}{A priority grid dataset returned from build_urban_priority_grid.}
 }
 \description{
-Morphological Street Canyon priority scoring engine (Mathematically Rigorous MCDA)
+Morphological street-canyon priority screening (heuristic MCDA)
 }
