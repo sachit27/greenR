@@ -53,12 +53,16 @@
       scl <- terra::project(scl, red, method = "near")
     r <- .uh_s2_reflectance(red, item, "B04", already_scaled = red_scaled)
     n <- .uh_s2_reflectance(nir, item, "B08", already_scaled = nir_scaled)
-    out <- terra::ifel((n + r) > 0, (n - r) / (n + r), NA)
-    # SCL 4/5/6: vegetation, bare/urban, water.  Clouds,
-    # shadows, snow and defective pixels remain missing.
-    valid <- scl == 4 | scl == 5 | scl == 6
-    out <- terra::mask(out, valid, maskvalues = 0, updatevalue = NA)
-    names(out) <- "ndvi"
+    ndvi <- terra::ifel((n + r) > 0, (n - r) / (n + r), NA)
+    # SCL 4/5: vegetation, bare/urban -> land NDVI.  SCL 6 (water) is a clear
+    # observation but carries no land-vegetation signal, so it is recorded in
+    # the "water" layer and kept out of NDVI.  Clouds, shadows, snow and
+    # defective pixels remain missing in both layers.
+    land <- scl == 4 | scl == 5
+    ndvi <- terra::mask(ndvi, land, maskvalues = 0, updatevalue = NA)
+    water <- terra::ifel(scl == 6, 1, terra::ifel(land & !is.na(ndvi), 0, NA))
+    out <- c(ndvi, water)
+    names(out) <- c("ndvi", "water")
   } else {
     st <- read_asset("lwir11")
     qa <- read_asset("qa_pixel")
@@ -73,7 +77,7 @@
 }
 
 .uh_satellite_coverage <- function(r, template) {
-  v <- terra::values(r, mat = FALSE)
+  v <- terra::values(r[[terra::nlyr(r)]], mat = FALSE)
   inside <- is.finite(terra::values(template, mat = FALSE))
   if (!any(inside)) return(0)
   mean(is.finite(v[inside]))
@@ -93,15 +97,15 @@
   on.exit(unlink(geometry_file), add = TRUE)
   saveRDS(sf::st_geometry(sf::st_transform(boundary, 4326)), geometry_file)
   geometry_hash <- unname(tools::md5sum(geometry_file))
-  key <- gsub("[^A-Za-z0-9_-]", "_", paste(c("mosaic_v2", kind,
+  key <- gsub("[^A-Za-z0-9_-]", "_", paste(c("mosaic_v3", kind,
     format(round(bbox, 5), nsmall = 5), geometry_hash, datetime), collapse = "_"))
   path <- file.path(cache_dir, kind, paste0(key, ".tif"))
   if (use_cache && file.exists(path) && file.exists(paste0(path, ".rds"))) {
     meta <- readRDS(paste0(path, ".rds"))
-    if (identical(meta$algorithm, "first-clear-paged-v2") &&
+    if (identical(meta$algorithm, "first-clear-paged-v3") &&
         identical(meta$datetime_query, datetime) &&
         identical(meta$bbox, bbox) && meta$coverage >= min_coverage)
-      return(c(list(raster = terra::rast(path)), meta))
+      return(c(.uh_split_mosaic(terra::rast(path)), meta))
   }
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
   collection <- if (kind == "ndvi") "sentinel-2-l2a" else "landsat-c2-l2"
@@ -132,20 +136,26 @@
       if (is.null(scene)) next
       if (is.null(mosaic)) {
         template <- .uh_satellite_template(boundary, scene, resolution)
-        mosaic <- terra::ifel(!is.na(template), NA_real_, NA_real_)
-        source_index <- mosaic
+        mosaic <- terra::rast(template, nlyrs = terra::nlyr(scene), vals = NA_real_)
+        names(mosaic) <- names(scene)
+        source_index <- terra::rast(template, vals = NA_real_)
       }
       aligned <- terra::project(scene, mosaic, method = "near")
       # Projecting to a full rectangular grid can introduce cells outside AOI.
       aligned <- terra::mask(aligned, !is.na(template), maskvalues = 0, updatevalue = NA)
-      new_cells <- is.na(mosaic) & !is.na(aligned)
+      # A cell is observed when the last layer is non-missing (for NDVI the
+      # "water" layer, which also marks clear land; otherwise the value itself).
+      obs_now <- !is.na(aligned[[terra::nlyr(aligned)]])
+      new_cells <- is.na(mosaic[[terra::nlyr(mosaic)]]) & obs_now
       added <- terra::global(new_cells, "sum", na.rm = TRUE)[1, 1]
       if (!is.finite(added) || added == 0) next
       used[[length(used) + 1L]] <- list(id = item$id,
         datetime = item$properties[["datetime"]] %||% NA_character_,
         cloud_cover = clouds[match(item$id, vapply(signed$features, `[[`, "", "id"))],
         added_pixels = as.integer(added))
-      mosaic <- terra::ifel(new_cells, aligned, mosaic)
+      mosaic <- terra::rast(lapply(seq_len(terra::nlyr(mosaic)), function(k)
+        terra::ifel(new_cells, aligned[[k]], mosaic[[k]])))
+      names(mosaic) <- names(aligned)
       source_index <- terra::ifel(new_cells, length(used), source_index)
       if (.uh_satellite_coverage(mosaic, template) >= min_coverage) break
     }
@@ -162,7 +172,7 @@
     datetime = vapply(used, `[[`, "", "datetime"),
     cloud_cover = vapply(used, `[[`, 0.0, "cloud_cover"),
     added_pixels = vapply(used, `[[`, 0L, "added_pixels"),
-    algorithm = "first-clear-paged-v2", datetime_query = datetime,
+    algorithm = "first-clear-paged-v3", datetime_query = datetime,
     bbox = bbox, coverage = coverage, pages_read = page_number,
     source_index_path = sub("\\.tif$", "_source.tif", path))
   terra::writeRaster(mosaic, path, overwrite = TRUE,
@@ -170,5 +180,13 @@
   terra::writeRaster(source_index, meta$source_index_path,
                      overwrite = TRUE, gdal = c("COMPRESS=DEFLATE", "TILED=YES"))
   saveRDS(meta, paste0(path, ".rds"))
-  c(list(raster = mosaic), meta)
+  c(.uh_split_mosaic(mosaic), meta)
+}
+
+# The first layer is the analysed value. An optional "water" layer (NDVI only)
+# marks clear water (1) and clear land (0) observations.
+.uh_split_mosaic <- function(r) {
+  if (terra::nlyr(r) > 1L && "water" %in% names(r))
+    list(raster = r[[1]], water = r[["water"]])
+  else list(raster = r[[1]], water = NULL)
 }

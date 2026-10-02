@@ -18,7 +18,11 @@ accessibility_mapbox(
 
 \item{mapbox_token}{Mapbox access token for the browser-side Mapbox GL and Isochrone APIs. Defaults to \code{MAPBOX_ACCESS_TOKEN}; this function cannot operate without a token. For a map without Mapbox, use \code{accessibility_greenspace()}.}
 
-\item{output_file}{Character, the file path to save the HTML file.}
+\item{output_file}{Character, the file path to save the HTML file. The token is written
+into this file in plain text, because the browser needs it to call Mapbox;
+anyone who receives the file can read and use it. Use a URL-restricted
+public token (scope: styles and isochrone only) and do not share files
+made with a secret token.}
 
 \item{initial_zoom}{Numeric, the initial zoom level of the map. Default is 15.}
 

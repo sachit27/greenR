@@ -76,13 +76,32 @@ test_that("points inside buildings get NA, points under canopy are flagged", {
   obst <- max(r, b, na.rm = TRUE)
   pts <- sf::st_sf(point_id = 1:2, geometry = sf::st_sfc(sf::st_point(c(50.5, 50.5)), sf::st_point(c(10.5, 10.5)), crs = 32632))
   terrain <- r
-  p <- greenR:::.uh_svf_compute_points(pts, terrain, obst, observer_height_m = 1.5, max_distance_m = 60, building_raster = b)
+  p <- greenR:::.uh_svf_compute_points(pts, terrain, obst, observer_height_m = 1.5, max_distance_m = 60, building_raster = b, max_truncated_share = 1)
   expect_true(p$inside_building[1]); expect_true(is.na(p$svf[1]))
   expect_false(p$inside_building[2]); expect_true(is.finite(p$svf[2])); expect_lt(p$svf[2], 1)
   # a canopy-only obstruction over the second point: flagged, not treated as a building
   can <- r; mm <- matrix(0, n, n); mm[88:94, 8:14] <- 10; terra::values(can) <- as.vector(t(mm))
-  p2 <- greenR:::.uh_svf_compute_points(pts[2, ], terrain, max(r, can), observer_height_m = 1.5, max_distance_m = 40, building_raster = b)
+  p2 <- greenR:::.uh_svf_compute_points(pts[2, ], terrain, max(r, can), observer_height_m = 1.5, max_distance_m = 40, building_raster = b, max_truncated_share = 1)
   expect_true(p2$under_canopy); expect_false(p2$inside_building)
+  # opaque canopy overhead blocks the whole sky; the point is kept, not dropped
+  expect_equal(p2$svf, 0); expect_equal(p2$max_horizon_deg, 90)
+})
+
+test_that("street summaries keep under-canopy points", {
+  pts <- sf::st_sf(street_id = c(1, 1, 2), svf = c(0, 0.8, NA),
+                   mean_horizon_deg = c(90, 10, NA),
+                   inside_building = c(FALSE, FALSE, TRUE),
+                   under_canopy = c(TRUE, FALSE, FALSE),
+                   svf_truncated = c(FALSE, FALSE, FALSE),
+                   geometry = sf::st_sfc(sf::st_point(c(0, 0)), sf::st_point(c(1, 0)),
+                                         sf::st_point(c(5, 5)), crs = 32632))
+  roads <- sf::st_sf(street_id = c(1, 2), geometry = sf::st_sfc(
+    sf::st_linestring(matrix(c(0, 0, 1, 0), 2, byrow = TRUE)),
+    sf::st_linestring(matrix(c(5, 5, 6, 5), 2, byrow = TRUE)), crs = 32632))
+  out <- greenR:::.uh_svf_summarise_streets(pts, roads)
+  expect_equal(out$svf_mean[out$street_id == 1], 0.4)
+  expect_equal(out$points_under_canopy, c(1L, 0L))
+  expect_true(is.na(out$svf_mean[out$street_id == 2]))
 })
 
 test_that("rays leaving the data are reported, not counted as sky silently", {
@@ -91,6 +110,15 @@ test_that("rays leaving the data are reported, not counted as sky silently", {
   expect_gt(p$ray_truncated_share, 0)
   p2 <- svf_run(r, svf_point(50.5, 50.5), max_distance_m = 40, n_directions = 8)
   expect_equal(p2$ray_truncated_share, 0)
+  # a corner point loses most rays: SVF is withheld above the tolerated share
+  p3 <- svf_run(r, svf_point(1.5, 1.5), max_distance_m = 60, n_directions = 8,
+                max_truncated_share = 0.25)
+  expect_gt(p3$ray_truncated_share, 0.25)
+  expect_true(p3$svf_truncated); expect_true(is.na(p3$svf))
+  p4 <- svf_run(r, svf_point(1.5, 1.5), max_distance_m = 60, n_directions = 8,
+                max_truncated_share = 1)
+  expect_false(p4$svf_truncated); expect_true(is.finite(p4$svf))
+  expect_error(svf_run(r, svf_point(1.5, 1.5), max_truncated_share = 2), "0 to 1")
 })
 
 test_that("the data area extends the sample area by the full horizon radius", {

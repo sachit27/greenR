@@ -20,8 +20,10 @@ using namespace Rcpp;
 //     horizontal plane (horizontal-surface sky-view factor).
 //   * SVF = mean(cos^2(horizon)) over directions (Johnson & Watson 1984; Oke 1987).
 //   * If the observer's own cell is higher than the observer, the observer is
-//     inside an obstacle (e.g. a sample point on a building footprint) and SVF
-//     is returned as NA together with a flag.
+//     covered by an obstacle and is flagged (inside_obstacle). The obstruction
+//     raster treats canopy as opaque, so the sky is fully blocked: SVF = 0 and
+//     every horizon angle is 90 degrees. Callers that know the obstacle is a
+//     building (no outdoor sky view at all) set those points to NA themselves.
 //
 // [[Rcpp::export]]
 List svf_raycast_cpp(NumericMatrix coords, NumericVector obs_values,
@@ -114,7 +116,9 @@ List svf_raycast_cpp(NumericMatrix coords, NumericVector obs_values,
     }
     truncated_share[i] = (double)n_trunc / n_dir;
     if (inside[i] == TRUE) {
-      svf_vec[i] = mean_horizon[i] = max_horizon[i] = NA_REAL;
+      svf_vec[i] = 0.0;
+      mean_horizon[i] = max_horizon[i] = 90.0;
+      if (return_raw_angles) for (int j = 0; j < n_dir; ++j) horizon_mat(i, j) = M_PI / 2.0;
     } else {
       svf_vec[i] = sum_cos2 / n_dir;
       mean_horizon[i] = sum_h / n_dir / deg;

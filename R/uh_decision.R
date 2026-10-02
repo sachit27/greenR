@@ -474,7 +474,7 @@ build_urban_priority_grid <- function(
     .fetch_ndvi_stac(boundary, ndvi_datetime, city_cache_dir, use_cache = use_cache,
                      max_pages = satellite_max_pages, min_coverage = satellite_min_coverage)
   }
-  hex_ndvi <- .summarise_ndvi_hex(hex_grid, ndvi_data$raster)
+  hex_ndvi <- .summarise_ndvi_hex(hex_grid, ndvi_data$raster, ndvi_data$water)
 
   # 7. Get LST (Landsat-8)
   lst_data <- if (!is.null(local_lst)) {
@@ -502,6 +502,7 @@ build_urban_priority_grid <- function(
   heat_score <- .scale_0_100(merged$lst_mean_c)
   canopy_deficit <- .scale_0_100(merged$canopy_pct_chm, inverse = TRUE)
   ndvi_deficit <- .scale_0_100(merged$ndvi_mean, inverse = TRUE)
+  ndvi_deficit[merged$ndvi_water_only %in% TRUE] <- 0   # water: no vegetation deficit
   build_pressure <- .scale_0_100(merged$gba_building_frac)
 
   # Identify cells intersecting MAJOR water body polygons (lakes, rivers only)
@@ -544,7 +545,7 @@ build_urban_priority_grid <- function(
     })
   }
 
-  is_water <- water_overlap
+  is_water <- water_overlap | (merged$ndvi_water_only %in% TRUE)
 
   merged <- merged |>
     dplyr::mutate(
@@ -597,6 +598,7 @@ build_urban_priority_grid <- function(
     population_raster = population_raster,
     chm_raster = chm_raster,
     ndvi_raster = ndvi_data$raster,
+    ndvi_water_raster = ndvi_data$water,
     lst_raster = lst_data$raster,
     scenes = list(
       ndvi_id = ndvi_data$item_id,
@@ -1954,14 +1956,28 @@ plot_priority_3d_isometric <- function(
                        max_pages = max_pages, min_coverage = min_coverage)
 }
 
-.summarise_ndvi_hex <- function(hex_grid, ndvi_raster) {
-  hex_ndvi_crs <- sf::st_transform(hex_grid, terra::crs(ndvi_raster))
-  ndvi_mean <- exactextractr::exact_extract(ndvi_raster, hex_ndvi_crs, "mean")
-
+.summarise_ndvi_hex <- function(hex_grid, ndvi_raster, water_raster = NULL) {
+  z <- .uh_zonal_ndvi(ndvi_raster, water_raster, hex_grid, "ndvi")
   out <- hex_grid
-  out$ndvi_mean <- as.numeric(ndvi_mean)
-  .uh_require_complete(out$ndvi_mean, "ndvi")
+  out$ndvi_mean <- z$mean
+  out$ndvi_water_only <- z$water_only
   out
+}
+
+# Mean land NDVI per unit. Clear water pixels are not vegetation observations:
+# a unit observed only as water gets NDVI = NA and water_only = TRUE (and is
+# then scored like water); any other unit without observations is an error.
+.uh_zonal_ndvi <- function(ndvi_raster, water_raster, units, label) {
+  m <- as.numeric(exactextractr::exact_extract(
+    ndvi_raster, sf::st_transform(units, terra::crs(ndvi_raster)), "mean"))
+  water_only <- rep(FALSE, length(m))
+  if (!is.null(water_raster)) {
+    wf <- as.numeric(exactextractr::exact_extract(
+      water_raster, sf::st_transform(units, terra::crs(water_raster)), "mean"))
+    water_only <- !is.finite(m) & is.finite(wf)
+  }
+  .uh_require_complete(m[!water_only], label)
+  list(mean = m, water_only = water_only)
 }
 
 .fetch_lst_stac <- function(boundary, datetime, cache_dir, use_cache = FALSE,
@@ -2306,9 +2322,9 @@ build_street_canyon_priority <- function(priority_data) {
   .uh_require_complete(canyons$lst_mean_c, "canyon LST")
 
   # NDVI mean
-  ndvi_mean <- exactextractr::exact_extract(priority_data$ndvi_raster, sf::st_transform(canyons, sf::st_crs(priority_data$ndvi_raster)), "mean")
-  canyons$ndvi_mean <- as.numeric(ndvi_mean)
-  .uh_require_complete(canyons$ndvi_mean, "canyon NDVI")
+  z <- .uh_zonal_ndvi(priority_data$ndvi_raster, priority_data$ndvi_water_raster, canyons, "canyon NDVI")
+  canyons$ndvi_mean <- z$mean
+  canyons$ndvi_water_only <- z$water_only
 
   # Canopy Height Model -> Canopy Coverage Percentage (>= 2m)
   chm_bool <- priority_data$chm_raster >= 2
@@ -2374,6 +2390,11 @@ build_street_canyon_priority <- function(priority_data) {
     }
   }
 
+  # Canyons observed only as water carry no land signal: score them as water.
+  wo <- canyons$ndvi_water_only %in% TRUE
+  canyons$tree_need_score[wo] <- 0
+  canyons$planting_opportunity_score[wo] <- 0
+  canyons$priority_score[wo] <- 0
   canyons$priority_rank <- dplyr::min_rank(dplyr::desc(canyons$priority_score))
 
   list(
@@ -2806,9 +2827,9 @@ build_urban_block_priority <- function(
   blocks$lst_mean_c <- as.numeric(lst_mean)
   .uh_require_complete(blocks$lst_mean_c, "block LST")
 
-  ndvi_mean <- exactextractr::exact_extract(priority_data$ndvi_raster, sf::st_transform(blocks, sf::st_crs(priority_data$ndvi_raster)), "mean")
-  blocks$ndvi_mean <- as.numeric(ndvi_mean)
-  .uh_require_complete(blocks$ndvi_mean, "block NDVI")
+  z <- .uh_zonal_ndvi(priority_data$ndvi_raster, priority_data$ndvi_water_raster, blocks, "block NDVI")
+  blocks$ndvi_mean <- z$mean
+  blocks$ndvi_water_only <- z$water_only
 
   # Canopy Height Model -> Canopy Coverage Percentage (>= 2m)
   chm_bool <- priority_data$chm_raster >= 2
@@ -2816,7 +2837,7 @@ build_urban_block_priority <- function(
   blocks$canopy_pct_chm <- as.numeric(canopy_frac) * 100
   .uh_require_complete(blocks$canopy_pct_chm, "block CHM")
 
-  # Rigorous Percentile-based MCDA framework
+  # Heuristic within-area percentile-rank ranking; weights are assumptions.
   message("[blocks] Modeling block-level shade mitigation priorities...")
   lst_rank <- dplyr::percent_rank(blocks$lst_mean_c)
   pop_rank <- dplyr::percent_rank(log1p(blocks$population))
@@ -2827,6 +2848,8 @@ build_urban_block_priority <- function(
   blocks$heat_exposure_index <- w_heat * lst_rank + w_pop * pop_rank
   if (w_ndvi < 0 || w_canopy < 0 || w_ndvi + w_canopy <= 0)
     stop("w_ndvi and w_canopy must be nonnegative with positive sum.", call. = FALSE)
+  if (w_canopy > 0)
+    warning("w_canopy > 0 counts canopy twice: in the cooling deficit and in the canopy-gap opportunity score. Keep w_canopy = 0 unless this is intended.", call. = FALSE)
   blocks$cooling_deficit_index <-
     (w_ndvi * (1 - ndvi_rank) + w_canopy * (1 - chm_rank)) / (w_ndvi + w_canopy)
 
@@ -2880,7 +2903,7 @@ build_urban_block_priority <- function(
       }
     })
   }
-  is_water <- water_overlap
+  is_water <- water_overlap | (blocks$ndvi_water_only %in% TRUE)
 
   blocks$planting_opportunity_score <- 100 * (1 - chm_rank)
   blocks$planting_opportunity_score[is_water] <- 0
