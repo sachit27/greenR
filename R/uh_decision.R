@@ -1972,9 +1972,21 @@ plot_priority_3d_isometric <- function(
     ndvi_raster, sf::st_transform(units, terra::crs(ndvi_raster)), "mean"))
   water_only <- rep(FALSE, length(m))
   if (!is.null(water_raster)) {
-    wf <- as.numeric(exactextractr::exact_extract(
-      water_raster, sf::st_transform(units, terra::crs(water_raster)), "mean"))
-    water_only <- !is.finite(m) & is.finite(wf)
+    water_units <- sf::st_transform(units, terra::crs(water_raster))
+    water_extent <- terra::ext(water_raster)
+    water_footprint <- sf::st_as_sfc(sf::st_bbox(c(
+      xmin = unname(water_extent$xmin), ymin = unname(water_extent$ymin),
+      xmax = unname(water_extent$xmax), ymax = unname(water_extent$ymax)),
+      crs = sf::st_crs(terra::crs(water_raster))))
+    inside_footprint <- as.vector(sf::st_covered_by(
+      sf::st_geometry(water_units), water_footprint, sparse = FALSE))
+    entirely_water <- exactextractr::exact_extract(
+      water_raster, water_units,
+      function(values, coverage_fractions) {
+        covered <- coverage_fractions > 0
+        any(covered) && all(is.finite(values[covered]) & values[covered] == 1)
+      })
+    water_only <- !is.finite(m) & inside_footprint & entirely_water
   }
   .uh_require_complete(m[!water_only], label)
   list(mean = m, water_only = water_only)
