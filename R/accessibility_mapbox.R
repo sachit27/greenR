@@ -7,7 +7,11 @@ utils::globalVariables(c("mapboxgl", "mapbox", "d3", "document", "window", "navi
 #'
 #' @param green_area_data A list containing green area data.
 #' @param mapbox_token Mapbox access token for the browser-side Mapbox GL and Isochrone APIs. Defaults to `MAPBOX_ACCESS_TOKEN`; this function cannot operate without a token. For a map without Mapbox, use `accessibility_greenspace()`.
-#' @param output_file Character, the file path to save the HTML file.
+#' @param output_file Character, the file path to save the HTML file. The token is written
+#'   into this file in plain text, because the browser needs it to call Mapbox;
+#'   anyone who receives the file can read and use it. Use a URL-restricted
+#'   public token (scope: styles and isochrone only) and do not share files
+#'   made with a secret token.
 #' @param initial_zoom Numeric, the initial zoom level of the map. Default is 15.
 #' @param initial_pitch Numeric, the initial pitch of the map. Default is 45.
 #' @param initial_bearing Numeric, the initial bearing of the map. Default is -17.6.
@@ -28,6 +32,8 @@ accessibility_mapbox <- function(green_area_data, mapbox_token = Sys.getenv("MAP
 
   if (!is.character(mapbox_token) || length(mapbox_token) != 1L || !nzchar(mapbox_token))
     stop("accessibility_mapbox() uses the Mapbox Isochrone API. Set MAPBOX_ACCESS_TOKEN in your user .Renviron or pass mapbox_token; for a Mapbox-free map use accessibility_greenspace().", call. = FALSE)
+  message("[accessibility_mapbox] The Mapbox token is embedded in plain text in ", output_file,
+          "; share this file only if the token is URL-restricted.")
 
   # Validate and prepare green area data
   if (is.null(green_area_data) || !inherits(green_area_data$osm_polygons, "sf")) {

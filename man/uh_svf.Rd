@@ -29,6 +29,7 @@ uh_svf(
   step_m = NULL,
   n_directions = 72,
   observer_height_m = 1.5,
+  max_truncated_share = 0.5,
   target_resolution_m = NULL,
   return_raw_angles = FALSE,
   include_gpkg = FALSE,
@@ -94,6 +95,11 @@ every obstruction cell they cross, so no obstacle can be stepped over.}
 
 \item{observer_height_m}{Observer height above ground.}
 
+\item{max_truncated_share}{Largest share (0-1) of ray directions allowed to
+leave the obstruction data before \code{max_distance_m}. Beyond that point
+nothing is known and would count as open sky, so points above this share get
+\code{svf = NA} and \code{svf_truncated = TRUE}. Default 0.5.}
+
 \item{target_resolution_m}{Optional coarsening target for the obstruction raster.}
 
 \item{return_raw_angles}{Whether to return raw horizon angles for skyline plotting.}
@@ -132,6 +138,9 @@ of diffuse solar irradiance. Generates interactive Leaflet maps with dynamic lay
 Street-canyon local mode requires an obstruction grid of 2 m or finer.
 City-screening outputs from coarse online terrain are unsuitable for
 street-canyon inference.
+Canopy is treated as opaque: a sample point under a crown gets SVF = 0 and
+\code{under_canopy = TRUE}, and stays in street summaries (which report
+\code{points_under_canopy}). Points inside buildings get SVF = NA.
 }
 \examples{
 \dontrun{
@@ -167,7 +176,7 @@ street-canyon inference.
     sample_mode = "both",
     spacing_street_m = 15,
     spacing_grid_m = 30,
-    n_directions = 72,                             # Rigorous ray casting
+    n_directions = 72,                             # ray directions
     output_dir = tempdir()
   )
 

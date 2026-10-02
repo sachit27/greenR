@@ -1,4 +1,4 @@
-utils::globalVariables("inside_building")
+utils::globalVariables(c("inside_building", "under_canopy", "svf_truncated"))
 
 #' Strict High-Resolution Sky-View Factor (SVF) Calculation Engine
 #' @description
@@ -12,6 +12,9 @@ utils::globalVariables("inside_building")
 #' Street-canyon local mode requires an obstruction grid of 2 m or finer.
 #' City-screening outputs from coarse online terrain are unsuitable for
 #' street-canyon inference.
+#' Canopy is treated as opaque: a sample point under a crown gets SVF = 0 and
+#' \code{under_canopy = TRUE}, and stays in street summaries (which report
+#' \code{points_under_canopy}). Points inside buildings get SVF = NA.
 #'
 #' @importFrom sf st_transform st_geometry st_centroid st_union st_coordinates st_bbox st_as_sfc st_sf st_sfc st_polygon st_multipolygon st_make_valid st_simplify st_read st_write st_intersection st_is_empty st_point_on_surface st_nearest_feature st_distance st_length st_line_sample st_cast st_crs
 #' @importFrom terra rast project crop mask rasterize ext values app res resample writeRaster vect extract
@@ -52,6 +55,10 @@ utils::globalVariables("inside_building")
 #'   every obstruction cell they cross, so no obstacle can be stepped over.
 #' @param n_directions Number of azimuth directions (compass azimuths, 0 = north, clockwise).
 #' @param observer_height_m Observer height above ground.
+#' @param max_truncated_share Largest share (0-1) of ray directions allowed to
+#'   leave the obstruction data before \code{max_distance_m}. Beyond that point
+#'   nothing is known and would count as open sky, so points above this share get
+#'   \code{svf = NA} and \code{svf_truncated = TRUE}. Default 0.5.
 #' @param target_resolution_m Optional coarsening target for the obstruction raster.
 #' @param return_raw_angles Whether to return raw horizon angles for skyline plotting.
 #' @param include_gpkg Whether to save outputs as GeoPackage files.
@@ -101,7 +108,7 @@ utils::globalVariables("inside_building")
 #'     sample_mode = "both",
 #'     spacing_street_m = 15,
 #'     spacing_grid_m = 30,
-#'     n_directions = 72,                             # Rigorous ray casting
+#'     n_directions = 72,                             # ray directions
 #'     output_dir = tempdir()
 #'   )
 #'
@@ -150,6 +157,7 @@ uh_svf <- function(
   step_m = NULL,
   n_directions = 72,
   observer_height_m = 1.5,
+  max_truncated_share = 0.5,
   target_resolution_m = NULL,
   return_raw_angles = FALSE,
   include_gpkg = FALSE,
@@ -385,7 +393,8 @@ uh_svf <- function(
       step_m = step_m,
       observer_height_m = observer_height_m,
       return_raw_angles = return_raw_angles,
-      building_raster = obstruction$buildings
+      building_raster = obstruction$buildings,
+      max_truncated_share = max_truncated_share
     )
     svf_settings <- attr(street_points, "svf_settings")
     street_summary <- .uh_svf_summarise_streets(street_points, roads)
@@ -413,7 +422,8 @@ uh_svf <- function(
       step_m = step_m,
       observer_height_m = observer_height_m,
       return_raw_angles = return_raw_angles,
-      building_raster = obstruction$buildings
+      building_raster = obstruction$buildings,
+      max_truncated_share = max_truncated_share
     )
     svf_settings <- attr(grid_points, "svf_settings")
     building_svf <- .uh_svf_summarise_buildings(grid_points, buildings)
@@ -446,7 +456,7 @@ uh_svf <- function(
       "terrain_source", "terrain_native_resolution_m",
       "buildings_source", "canopy_source",
       "sample_mode", "spacing_street_m", "spacing_grid_m",
-      "observer_height_m", "max_distance_m", "step_m", "n_directions", "azimuth_convention",
+      "observer_height_m", "max_distance_m", "max_truncated_share", "step_m", "n_directions", "azimuth_convention",
       "svf_formula", "notes"
     ),
     value = c(
@@ -463,10 +473,11 @@ uh_svf <- function(
       spacing_grid_m,
       observer_height_m,
       max_distance_m,
+      max_truncated_share,
       "exact cell traversal (no step)",
       n_directions,
       "compass azimuth, 0 = north, clockwise",
-      "mean(cos(max_horizon_angle_by_azimuth)^2); points inside buildings = NA",
+      "mean(cos(max_horizon_angle_by_azimuth)^2); points inside buildings = NA; points under opaque canopy = 0; points with too many truncated rays = NA",
       if (quality_tier == "global_screening") "Use for citywide screening, not for validated street-canyon microclimate claims." else "Suitable for local geometric street-form analysis if local inputs are valid."
     ),
     stringsAsFactors = FALSE
@@ -2047,7 +2058,10 @@ function toggleTheme(){
   pts
 }
 
-.uh_svf_compute_points <- function(sample_points, terrain_raster, obstruction_raster, n_directions = 72, max_distance_m = 300, step_m = NULL, observer_height_m = 1.5, return_raw_angles = FALSE, n_cores = NULL, building_raster = NULL) {
+.uh_svf_compute_points <- function(sample_points, terrain_raster, obstruction_raster, n_directions = 72, max_distance_m = 300, step_m = NULL, observer_height_m = 1.5, return_raw_angles = FALSE, n_cores = NULL, building_raster = NULL, max_truncated_share = 0.5) {
+  if (!is.numeric(max_truncated_share) || length(max_truncated_share) != 1L || is.na(max_truncated_share) ||
+      max_truncated_share < 0 || max_truncated_share > 1)
+    stop("max_truncated_share must be a number from 0 to 1.", call. = FALSE)
   if (!is.numeric(n_directions) || n_directions < 4) stop("n_directions must be >= 4.", call. = FALSE)
   if (!is.numeric(max_distance_m) || max_distance_m <= 0) stop("max_distance_m must be positive.", call. = FALSE)
   r_res <- terra::res(obstruction_raster)
@@ -2080,6 +2094,10 @@ function toggleTheme(){
   }
   svf <- res$svf; mh <- res$mean_horizon; xh <- res$max_horizon
   svf[inside_building] <- NA_real_; mh[inside_building] <- NA_real_; xh[inside_building] <- NA_real_
+  # Rays that leave the obstruction data see nothing beyond that point, which
+  # would count as open sky. Above the tolerated share the SVF is not reported.
+  too_truncated <- is.finite(res$truncated_share) & res$truncated_share > max_truncated_share
+  svf[too_truncated] <- NA_real_; mh[too_truncated] <- NA_real_; xh[too_truncated] <- NA_real_
 
   sample_points$ground_z <- base_z
   sample_points$observer_z <- observer_z
@@ -2090,6 +2108,7 @@ function toggleTheme(){
   sample_points$inside_building <- inside_building
   sample_points$under_canopy <- (res$inside_obstacle %in% TRUE) & !inside_building
   sample_points$ray_truncated_share <- res$truncated_share
+  sample_points$svf_truncated <- too_truncated
   if (return_raw_angles) {
     sample_points$horizon_angles <- split(res$horizon_mat, row(res$horizon_mat))
   }
@@ -2112,6 +2131,8 @@ function toggleTheme(){
       svf_p10 = .uh_svf_safe_stat(svf, stats::quantile, probs = 0.10, names = FALSE),
       mean_horizon_deg = .uh_svf_safe_stat(mean_horizon_deg, mean),
       points_inside_building = sum(inside_building %in% TRUE),
+      points_under_canopy = sum(under_canopy %in% TRUE),
+      points_svf_truncated = sum(svf_truncated %in% TRUE),
       .groups = "drop"
     )
   dplyr::left_join(roads, stats, by = "street_id")

@@ -1,8 +1,9 @@
 name: R CMD check
 
+# Manual only, so pushes and pull requests do not use Actions minutes.
+# Run locally with: Rscript -e 'rcmdcheck::rcmdcheck()'
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:

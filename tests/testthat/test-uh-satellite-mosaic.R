@@ -62,3 +62,42 @@ test_that("truncated pagination cannot yield a partial satellite score", {
     "page limit reached")
   expect_length(list.files(file.path(cache, "ndvi")), 0)
 })
+
+test_that("clear water counts as observed but is kept out of NDVI", {
+  boundary <- sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(
+    c(xmin = 0, ymin = 0, xmax = 40, ymax = 10), crs = 32632)))
+  scene <- terra::rast(nrows = 1, ncols = 4, xmin = 0, xmax = 40, ymin = 0, ymax = 10,
+                       crs = "EPSG:32632", nlyrs = 2)
+  terra::values(scene) <- cbind(c(.5, .6, NA, .7), c(0, 0, 1, 0))
+  names(scene) <- c("ndvi", "water")
+  one <- list(features = list(list(id = "s", properties = list(
+    datetime = "2025-08-01T10:00:00Z", "eo:cloud_cover" = 1))), links = list())
+  local_mocked_bindings(
+    .uh_satellite_page = function(...) one,
+    .uh_sign_satellite_page = identity,
+    .uh_satellite_scene = function(...) scene,
+    .package = "greenR")
+  cache <- tempfile(); dir.create(cache)
+  on.exit(unlink(cache, recursive = TRUE), add = TRUE)
+  out <- greenR:::.uh_satellite_mosaic(boundary, "2025-08-01/2025-08-31",
+                                      cache, "ndvi", min_coverage = 1)
+  expect_equal(out$coverage, 1)
+  expect_equal(as.vector(terra::values(out$raster)), c(.5, .6, NA, .7), tolerance = 1e-6)
+  expect_equal(as.vector(terra::values(out$water)), c(0, 0, 1, 0))
+  cached <- greenR:::.uh_satellite_mosaic(boundary, "2025-08-01/2025-08-31",
+                                         cache, "ndvi", use_cache = TRUE, min_coverage = 1)
+  expect_equal(as.vector(terra::values(cached$water)), c(0, 0, 1, 0))
+
+  units <- sf::st_sf(id = 1:3, geometry = sf::st_sfc(
+    sf::st_polygon(list(rbind(c(0, 0), c(20, 0), c(20, 10), c(0, 10), c(0, 0)))),
+    sf::st_polygon(list(rbind(c(20, 0), c(30, 0), c(30, 10), c(20, 10), c(20, 0)))),
+    sf::st_polygon(list(rbind(c(20, 0), c(40, 0), c(40, 10), c(20, 10), c(20, 0)))),
+    crs = 32632))
+  z <- greenR:::.uh_zonal_ndvi(out$raster, out$water, units, "NDVI")
+  expect_equal(z$mean[1], .55, tolerance = 1e-6)
+  expect_true(is.na(z$mean[2])); expect_true(z$water_only[2])
+  expect_equal(z$mean[3], .7, tolerance = 1e-6)   # water half ignored, not averaged in
+  expect_false(any(z$water_only[c(1, 3)]))
+  # without a water layer an unobserved unit is still an error
+  expect_error(greenR:::.uh_zonal_ndvi(out$raster, NULL, units, "NDVI"), "lack valid observations")
+})
