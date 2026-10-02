@@ -101,3 +101,21 @@ test_that("clear water counts as observed but is kept out of NDVI", {
   # without a water layer an unobserved unit is still an error
   expect_error(greenR:::.uh_zonal_ndvi(out$raster, NULL, units, "NDVI"), "lack valid observations")
 })
+
+test_that("a partly observed unit is not mistaken for water-only", {
+  ndvi <- terra::rast(nrows = 1, ncols = 4, xmin = 0, xmax = 40,
+                      ymin = 0, ymax = 10, crs = "EPSG:32632")
+  water <- ndvi
+  terra::values(ndvi) <- rep(NA_real_, 4)
+  terra::values(water) <- c(1, NA, NA, NA)
+  full_unit <- sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(
+    c(xmin = 0, ymin = 0, xmax = 40, ymax = 10), crs = 32632)))
+  expect_error(greenR:::.uh_zonal_ndvi(ndvi, water, full_unit, "NDVI"),
+               "lack valid observations")
+
+  terra::values(water) <- rep(1, 4)
+  outside_unit <- sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(
+    c(xmin = 0, ymin = 0, xmax = 50, ymax = 10), crs = 32632)))
+  expect_error(greenR:::.uh_zonal_ndvi(ndvi, water, outside_unit, "NDVI"),
+               "lack valid observations")
+})
